@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Local ASK configuration and runtime state
+ask.json
+.ask/
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated graph exports
+graph.json
+*.graph.json
