@@ -554,7 +554,11 @@ def _validate_staged(api, config_path, files):
                 raise AskError('config must exist in the index: %s' % config_rel)
             raw_cfg = json.loads(staged_config.read_text(encoding='utf-8'))
             root = raw_cfg.get('vault_root', '')
-            if not isinstance(root, str) or not root or Path(root).is_absolute() or '..' in Path(root).parts or Path(root) == Path('.'):
+            # load_config expands a leading '~' (including named-user homes).
+            # Reject it before snapshot validation can touch live external notes.
+            if (not isinstance(root, str) or not root or Path(root).is_absolute()
+                    or '..' in Path(root).parts or Path(root) == Path('.')
+                    or Path(root).parts[0].startswith('~')):
                 raise AskError('staged vault_root must be a relative directory inside the workspace')
             return _validate_snapshot(
                 api, staged_config, files, redact=str(tmp_resolved))
