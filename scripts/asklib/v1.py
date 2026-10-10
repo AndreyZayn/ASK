@@ -54,10 +54,11 @@ def _install_hook(api, cp):
     if current and Path(current) not in (hooks, Path('.ask/hooks')):
         raise api.AskError('existing core.hooksPath needs manual hook integration: %s' % current)
     default_hook = ws / '.git' / 'hooks' / 'pre-commit'
-    if not current and default_hook.exists():
+    if not current and (default_hook.exists() or default_hook.is_symlink()):
         raise api.AskError('existing pre-commit hook needs manual integration; it was preserved')
     hooks.mkdir(parents=True, exist_ok=True)
     hook = hooks / 'pre-commit'
+    api.ensure_no_symlink_path(hook)
     command = '%s %s validate --config %s --staged --json' % tuple(shlex.quote(str(x)) for x in (sys.executable, Path(api.__file__).resolve(), cp))
     content = '#!/bin/sh\n# ASK managed staged-snapshot validator\nexec '+command+'\n'
     if hook.exists() and '# ASK managed staged-snapshot validator' not in hook.read_text():
