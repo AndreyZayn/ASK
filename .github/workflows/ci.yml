@@ -5,10 +5,12 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         python: ['3.9', '3.14']
-    runs-on: ${{ matrix.os }}
+    # Preserve required matrix check names while retaining Python 3.9 support.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,6 +21,6 @@ jobs:
       - run: python -m unittest discover -s tests -v
       # GitHub's synthetic PR merge commit is not authored by this project.
       # Scan the actual contributor branch ancestry, plus the checked-out source.
-      - run: python scripts/privacy_check.py --history --history-ref "$ASK_SOURCE_SHA"
+      - run: python scripts/privacy_check.py --history --history-ref "$ASK_SOURCE_SHA" --history-author-baseline .github/privacy-history-baseline.json
         env:
           ASK_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Conservative public-source checks. Findings show paths/rules, never secrets."""
 import argparse
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -16,7 +17,18 @@ RULES = {
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--history',action='store_true');p.add_argument('--history-ref',help='Scan this real branch ancestry instead of all local refs');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--history',action='store_true');p.add_argument('--history-ref',help='Scan this real branch ancestry instead of all local refs');p.add_argument('--history-author-baseline', type=Path, help='Reviewed exact commit IDs with existing author-email findings; all findings remain reported');args=p.parse_args()
+    baseline=set()
+    if args.history_author_baseline:
+        if not args.history: p.error('--history-author-baseline requires --history')
+        try:
+            data=json.loads(args.history_author_baseline.read_text(encoding='utf-8'))
+            commits=data.get('author_commits') if isinstance(data,dict) else None
+            if set(data)!={'author_commits'} or not isinstance(commits,list) or not all(isinstance(c,str) and re.fullmatch(r'[0-9a-f]{40}',c) for c in commits):
+                raise ValueError('baseline must contain exact full author commit IDs only')
+            baseline={c+': personal author/committer email' for c in commits}
+        except (OSError,ValueError,TypeError) as e:
+            p.error('invalid history author baseline: %s'%e)
     root=Path(__file__).resolve().parents[1]
     def git(*argv):
         return subprocess.check_output(['git',*argv],cwd=str(root))
@@ -32,7 +44,7 @@ def main():
     if args.history:
         for commit in git('rev-list',args.history_ref or '--all').decode().splitlines():
             identity=git('show','-s','--format=%an <%ae>%n%cn <%ce>',commit)
-            if RULES['personal-email'].search(identity): findings.append('%s: personal author/committer email'%commit[:12])
+            if RULES['personal-email'].search(identity): findings.append('%s: personal author/committer email'%commit)
             for entry in git('ls-tree','-r','-z',commit).split(b'\0'):
                 if not entry: continue
                 meta,path=entry.split(b'\t',1); mode,kind,oid=meta.split()
@@ -40,8 +52,12 @@ def main():
                 content=git('cat-file','blob',oid.decode())
                 for label,pat in RULES.items():
                     if pat.search(content): findings.append('%s:%s: %s'%(commit[:12],path.decode(),label))
-    for finding in sorted(set(findings)): print(finding)
-    print('Public privacy scan: %d finding(s)'%len(set(findings)))
-    return 1 if findings else 0
+    unique=set(findings)
+    known=unique & baseline
+    new=unique - baseline
+    for finding in sorted(unique):
+        print(finding + (' (reviewed historical baseline)' if finding in known else ''))
+    print('Public privacy scan: %d finding(s); %d reviewed historical; %d new'%(len(unique),len(known),len(new)))
+    return 1 if new else 0
 
 if __name__=='__main__':sys.exit(main())
