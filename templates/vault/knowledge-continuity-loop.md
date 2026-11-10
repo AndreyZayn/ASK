@@ -25,3 +25,29 @@ Sessions end; the knowledge base remains. Each piece of work follows this loop.
 Use the V1 controller's write markers, validation, scoped checkpoint, and sync commands; if using an older checkout without one of these commands, report the gap rather than simulating success. Do not sync to an unverified remote or bypass owner authority. Offline content can stay local as `backup-pending`; missing or unbound private-repository access leaves setup `setup-pending`. A hook must not overwrite a custom existing hook or silently stage unrelated files.
 
 Back to [[INDEX]].
+
+## Preserve knowledge, not execution residue
+
+Capture a reusable decision, contract, verified finding, accepted commitment, meaningful relationship fact, or lesson when it will change future work. Record the smallest explanation that remains useful without this chat. Search the existing canonical note first; prefer an update over a parallel summary. Preserve source, date, uncertainty, and the reason for a decision. Separate observed facts, owner choices, and hypotheses.
+
+| Information | Durable destination |
+| --- | --- |
+| Product behavior, architecture, policy, schema, workflow decision | Existing project or topic note; link the implementation evidence |
+| Engineering planning, execution, review, verification, rework | Existing project development log; no automatic new log hierarchy |
+| Accepted commitment, owner, deadline, blocker, next action | Tasks or the owner's established task system |
+| Person or relationship context | Scoped People registry and detail note; link both directions |
+| Preferences or personal constraints | Relevant Personal note |
+| Reusable role, procedure, or workflow | Agents hats, rules, or loops, with owner direction for policy changes |
+| Per-session changes | One concise monthly Memory/Logs entry; never the sole home of a decision |
+
+Exclude credentials, access tokens, private keys, raw tool logs, full chat transcripts, scratch attempts, replay state, and redundant copies of repository source. Keep a useful conclusion and a safe source reference instead. A transient successful lookup or routine operation may need no durable record. If a fact is unreliable or the destination/authority is missing, report that precise gap instead of inventing a note.
+
+## Topology and maintenance
+
+New canonical notes need an inbound link from the nearest governing index. Create a local index when a folder defines a scope, registry, workflow, or has subfolders; compact domains may stay cataloged by their ancestor index. Update incoming links and the catalog when renaming or deleting a note. Dated operational records are routed through their folder index. Keep knowledge-map routing-only and avoid duplicated canonical facts.
+
+The installed staged-snapshot pre-commit hook enforces the local schema and graph checks. Run `validate --config PATH --json` before a scoped checkpoint; `validate --staged` reproduces the hook. The public validator checks the whole snapshot, including existing debt; it never silently migrates legacy notes. Preserve custom hooks and integrate validation manually when automatic setup refuses a conflict.
+
+## Closeout assessment
+
+The controller chooses one or more outcomes: **durable knowledge updated**, **lifecycle logged**, **blocker recorded**, or **no durable knowledge changed**. This assessment does not require writing a note for every task. When notes changed, identify their paths and evidence; when preservation is blocked, name the next owner and required input. A log entry or successful worker exit is not evidence that the requested task reached its target.

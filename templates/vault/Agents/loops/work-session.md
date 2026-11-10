@@ -1,9 +1,9 @@
 ---
 title: Work Session Loop
 description: Descriptive sequence for an authorized vault-writing session.
-kind: reference
+kind: loop
 scope: shared
-lifecycle_status: stable
+loop_status: active
 updated: {{DATE}}
 tags: ["agents", "loops"]
 ---

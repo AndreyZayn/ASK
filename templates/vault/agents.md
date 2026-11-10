@@ -29,3 +29,11 @@ The workspace configuration declares advisory paths. Lower-level `init` defaults
 ## After you act
 
 For an authorized write session, follow [[knowledge-continuity-loop]] from begin marker through checkpoint and end marker. Keep metadata valid per [[frontmatter-schema]]. If a required CLI command is unavailable, do not pretend the session was committed or backed up; report the limitation.
+
+## Session scope and continuity
+
+Bootstrap applies to owner-connected work across repositories and directories, including quick coding tasks and uncertain vault relevance. A pure public-fact lookup with no connection to the owner's work may skip it. After step four, the routing gate in [[knowledge-map]] precedes task-specific tools. Runtime registration alone does not prove the agent follows these instructions.
+
+Delegated workers skip bootstrap by default. An explicit file allowlist permits only those sources; a worker does not browse the rest of the vault. Return a precise context request to the controller when necessary. The controller owns final placement and continuity.
+
+Before final handoff of work involving a project, person, decision, or workflow, assess [[knowledge-continuity-loop]] even if no vault file was edited. State which applies: durable knowledge updated, lifecycle logged, blocker recorded, or no durable knowledge changed. Routine read-only work needs no note merely to prove activity.

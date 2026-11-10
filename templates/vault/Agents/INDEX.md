@@ -19,3 +19,6 @@ governed_by:
 - [[agents]] — bootstrap entry point
 
 Enroll agents and capabilities only with owner direction; a catalog entry is not a grant of access.
+
+- [[Agents/hats/INDEX]] — reusable professional roles
+- [[Agents/automations/INDEX]] — optional assignment and deployment records

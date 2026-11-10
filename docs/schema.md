@@ -4,9 +4,9 @@ Every Markdown note has YAML frontmatter. The private workspace receives an edit
 
 ## Supported JSON Schema subset
 
-The validator implements only these keywords: `type`, `required`, `properties`, `additionalProperties`, `enum`, `minLength`, `minItems`, `uniqueItems`, `items`, and `format`. The supported formats are `date` (a valid ISO calendar date in `YYYY-MM-DD` form) and `wikilink-note` (a quoted whole-note wikilink satisfying the relation rules below). Descriptive annotations such as `title`, `description`, and `$schema` do not add validation behavior. This is not a general JSON Schema engine.
+The validator implements only these keywords: `type`, `required`, `properties`, `additionalProperties`, `enum`, `minLength`, `minItems`, `uniqueItems`, `items`, and `format`. The supported formats are `date` (a valid ISO calendar date in `YYYY-MM-DD` form), `month` (`YYYY-MM`), `repository-url` (HTTPS with a host and at least two path components, without credentials/query/fragment), and `wikilink-note` (a quoted whole-note wikilink satisfying the relation rules below). Descriptive annotations such as `title`, `description`, and `$schema` do not add validation behavior. This is not a general JSON Schema engine.
 
-Each note must provide these common fields:
+Ordinary notes provide these common fields. The path profiles below can replace the state field or relax operational metadata:
 
 | Field | Meaning |
 | --- | --- |
@@ -17,7 +17,7 @@ Each note must provide these common fields:
 | `lifecycle_status` | Non-empty maintenance state from the local schema enum. |
 | `updated` | Valid calendar date in `YYYY-MM-DD` form. |
 
-The supplied schema also defines optional `aliases`, `cssclasses`, `date`, `month`, `plan_status`, `tags`, `project`, `domain`, `source`, `canonical`, and four typed relation arrays. Arrays use unique values where specified. Unknown fields are rejected by the default `additionalProperties: false`. Owners can adjust the local schema, including enum values, within the supported subset.
+The supplied schema also defines optional `relationship_status`, `capability_status`, `loop_status`, `contexts`, `repositories`, `aliases`, `cssclasses`, `date`, `month`, `plan_status`, `tags`, `project`, `domain`, `source`, `canonical`, and four typed relation arrays. Arrays use unique values where specified. Unknown fields are rejected by the default `additionalProperties: false`. Owners can adjust the local schema, including enum values, within the supported subset.
 
 Paths ending in `INDEX.md` must use `kind: index`. A non-index note under `Agents/rules/` must use `kind: rule`.
 
@@ -48,15 +48,15 @@ The graph exporter records these links as directed `navigational` edges. It does
 
 The root `date.md` stores a nondecreasing local date floor. Routine durable records identify a locally enrolled `by` agent and `upd` date in their body; `updated` in frontmatter is the last meaningful note change. Use `source` or prose for provenance and label assumptions. Do not add unsupported `by`/`upd` frontmatter fields to the default schema.
 
-Each authorized vault-writing session appends one entry to `Memory/Logs/YYYY-MM.md` (with `kind: log` and the common fields). Its index routes by month, so individual session lines are exempt from manual per-record indexing. Other operational dated files, including daily plans and rollups, also need the common frontmatter fields; a date in the filename does not replace metadata. The owning project or topic note, not the log, carries decisions and durable state. Weekly and monthly memory summaries require an explicit request.
+Each authorized vault-writing session appends one entry to `Memory/Logs/YYYY-MM.md` (with `kind: log`, `scope: personal`, and `month: YYYY-MM`). Its index routes by month, so individual session lines are exempt from manual per-record indexing. Daily plans require their date and plan state; rollups retain common fields. The owning project or topic note, not the log, carries decisions and durable state. Weekly and monthly memory summaries require an explicit request.
 
 | Operational note profile | `kind` | Additional guidance |
 | --- | --- | --- |
-| `Memory/Logs/YYYY-MM.md` | `log` | Append one concise entry per authorized write session; keep the owning note authoritative. |
-| `Tasks/Daily/YYYY-MM-DD.md` | `daily-plan` | Create only when requested and link from `Tasks/Daily/INDEX.md`. |
+| `Memory/Logs/YYYY-MM.md` | `log` | Require `month` matching filename; keep the owning note authoritative. |
+| `Tasks/Daily/YYYY-MM-DD.md` | `daily-plan` | Require matching `date` and `plan_status`; create only when requested. |
 | `Memory/Weekly/` or `Memory/Monthly/` dated summaries | `memory` | Create only when requested; link from the corresponding index. |
 
-Each new file needs its own unique `title`, non-empty `description`, valid `scope` and `lifecycle_status`, and an `updated` ISO date in frontmatter, even if its filename carries the same date. Use `by` and `upd` in the body, not as unrecognized frontmatter fields.
+Ordinary new files need a unique `title`, non-empty `description`, valid `scope`, path-specific state, and `updated` date. Daily plans and monthly session logs use the lighter profiles below. Use `by` and `upd` in the body, not as unrecognized frontmatter fields.
 
 See [upgrades](upgrades.md) for routine editable notes versus protected schema, taxonomy, and policy files. Do not automatically replace private schema customizations during an upgrade.
 
@@ -67,3 +67,38 @@ Inline and full/collapsed reference Markdown links are checked relative to their
 V1 setup enables nearest-index checks: each ordinary note must be linked from its nearest ancestor `INDEX.md`; each nested index is linked from its parent index. Dated daily plans, monthly logs, and weekly/monthly memory records are routed through their folder index and do not require individual listing. Invalid dated filenames fail validation. `validate --files` records the requested paths but still checks the whole vault, because links and title uniqueness cross file boundaries.
 
 Exit status: 0 valid, 1 content findings, 2 invalid configuration/schema or unavailable operation. `validate --staged` checks only the staged Git snapshot, including its staged configuration and schema.
+
+## Configurable path profiles
+
+`x-ask-path-rules` is an ASK extension to the documented subset, not a standard JSON Schema keyword. It lives in the owner's local `note.schema.json`. Older schemas without this key retain their existing common-field behavior. No validator run edits the schema or notes.
+
+Rules are ordered objects with `glob`, optional `exclude` patterns, `required`, `optional`, `forbidden` property lists, and `properties` overrides. Patterns are vault-relative, case-sensitive POSIX paths: `*` matches one path segment, `**` matches zero or more segments, and standard fnmatch `?`/character classes work within a segment. Excludes apply only to their own rule. All properties must be declared in the base schema. Later property definitions replace earlier definitions; `optional` removes a field from required fields, `required` adds it, and forbidden fields accumulate. A matched field that is both required and forbidden fails as a configuration error. Unknown profile keywords, unsafe patterns, and invalid field schemas fail closed.
+
+| Default path | Profile |
+| --- | --- |
+| `Agents/**` | Shared scope; hats are references, rules remain rules, capabilities cannot be rules |
+| `Agents/loops/**` except indexes | `kind: loop`, required `loop_status`; no `lifecycle_status` |
+| `Agents/capabilities/skills/*/*.md` except indexes | `kind: skill`, `capability_status`; shared folder forbids project |
+| `Projects/<Project>/**` | Required owner-defined `project`, work or side scope |
+| `Projects/Archive/INDEX.md` | Shared navigation, no project identifier |
+| `Personal/**` | Personal scope, no project identifier |
+| `People/<scope>/<person>.md` | Person, contexts, relationship state; personal scope forbids project |
+| `Tasks/Daily/*.md` except index | Date, daily-plan, personal scope, plan state; no lifecycle state |
+| `Memory/Logs/*.md` except index | Month, log, personal scope; no lifecycle state |
+| Weekly/monthly memory records | Memory kind and personal scope |
+
+The daily and log profiles make title, description, and updated optional. Their date/month must match the filename. Indexes keep common fields. `repositories` is restricted to `kind: codebase`. The generic `status` field is undeclared and rejected by default.
+
+Extend the local tag enum with owner-approved retrieval facets; keep `tags.md` aligned. To register a project's spelling, scope, domains, or extra tags, append a local profile, for example:
+
+```json
+{
+  "glob": "Projects/Example/**",
+  "properties": {
+    "project": {"type": "string", "enum": ["example"]},
+    "scope": {"type": "string", "enum": ["work"]}
+  }
+}
+```
+
+A second `Projects/Example/product/**` rule can require `domain` and constrain it to `product`. A project tag override should retain the shared enum and add local facets. The distribution does not infer personal project names or normalize them through a private mapping. Topology retains the standard folder names inside a configurable vault root.

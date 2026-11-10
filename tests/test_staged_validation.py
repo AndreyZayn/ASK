@@ -187,7 +187,10 @@ class StagedValidationTests(unittest.TestCase):
             VALID_FM.format(title='Daily Index').replace(
                 'kind: note', 'kind: index') + '# Daily\n', encoding='utf-8')
         (daily_dir / '2026-10-07.md').write_text(
-            VALID_FM.format(title='Daily Record') + '# Day\n', encoding='utf-8')
+            VALID_FM.format(title='Daily Record').replace('kind: note', 'kind: daily-plan')
+            .replace('scope: shared', 'scope: personal')
+            .replace('lifecycle_status: active', 'plan_status: planned\ndate: 2026-10-07')
+            + '# Day\n', encoding='utf-8')
         tasks_idx = self.vault / 'Tasks' / 'INDEX.md'
         ttext = tasks_idx.read_text(encoding='utf-8')
         if 'Daily/INDEX' not in ttext:

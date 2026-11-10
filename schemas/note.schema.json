@@ -42,7 +42,11 @@
         "template",
         "codebase",
         "artifact",
-        "registry"
+        "registry",
+        "loop",
+        "skill",
+        "prompt",
+        "research"
       ],
       "description": "Note type. Paths ending in INDEX.md require index; non-index notes under Agents/rules/ require rule."
     },
@@ -78,11 +82,42 @@
       "type": "array",
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "enum": [
+          "agents",
+          "bootstrap",
+          "capabilities",
+          "communications",
+          "continuity",
+          "daily",
+          "delegation",
+          "goals",
+          "index",
+          "integrations",
+          "logs",
+          "loops",
+          "memory",
+          "monthly",
+          "ontology",
+          "people",
+          "personal",
+          "plugins",
+          "projects",
+          "roster",
+          "routing",
+          "rules",
+          "runtimes",
+          "schema",
+          "skills",
+          "structure",
+          "tasks",
+          "taxonomy",
+          "weekly"
+        ]
       },
       "minItems": 1,
       "uniqueItems": true,
-      "description": "Free-form classification tags."
+      "description": "Registered retrieval facets; extend this local enum or an applicable path rule with owner direction."
     },
     "aliases": {
       "type": "array",
@@ -168,7 +203,8 @@
       "format": "date"
     },
     "month": {
-      "type": "string"
+      "type": "string",
+      "format": "month"
     },
     "plan_status": {
       "type": "string",
@@ -176,8 +212,389 @@
         "planned",
         "active",
         "completed",
-        "cancelled"
+        "cancelled",
+        "committed"
       ]
+    },
+    "relationship_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "cold",
+        "waiting",
+        "warm"
+      ]
+    },
+    "loop_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "draft",
+        "paused",
+        "retired"
+      ]
+    },
+    "capability_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "blocked",
+        "legacy",
+        "retired"
+      ]
+    },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "repositories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "format": "repository-url"
+      },
+      "minItems": 1,
+      "uniqueItems": true
     }
-  }
+  },
+  "x-ask-path-rules": [
+    {
+      "glob": "Agents/**",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "shared"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Agents/hats/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "reference"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Agents/capabilities/**",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "index",
+            "date",
+            "reference",
+            "note",
+            "decision",
+            "project",
+            "person",
+            "schema",
+            "task-list",
+            "daily-plan",
+            "log",
+            "memory",
+            "template",
+            "codebase",
+            "artifact",
+            "registry",
+            "loop",
+            "skill",
+            "prompt",
+            "research"
+          ],
+          "description": "Note type. Paths ending in INDEX.md require index; non-index notes under Agents/rules/ require rule."
+        }
+      }
+    },
+    {
+      "glob": "Agents/loops/**",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "required": [
+        "loop_status"
+      ],
+      "optional": [
+        "lifecycle_status"
+      ],
+      "forbidden": [
+        "lifecycle_status"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "loop"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Agents/capabilities/skills/*/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "required": [
+        "capability_status"
+      ],
+      "optional": [
+        "lifecycle_status"
+      ],
+      "forbidden": [
+        "lifecycle_status"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "skill"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "shared",
+            "work",
+            "side"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Agents/capabilities/skills/shared/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "forbidden": [
+        "project"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "shared"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Personal/**",
+      "forbidden": [
+        "project"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "personal"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Projects/*/**/*.md",
+      "exclude": [
+        "Projects/Archive/**"
+      ],
+      "required": [
+        "project"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "work",
+            "side"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Projects/Archive/*/**/*.md",
+      "required": [
+        "project"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "work",
+            "side"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Projects/Archive/INDEX.md",
+      "forbidden": [
+        "project"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "shared"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "People/*/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "required": [
+        "contexts",
+        "relationship_status"
+      ],
+      "optional": [
+        "lifecycle_status"
+      ],
+      "forbidden": [
+        "lifecycle_status",
+        "domain"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "person"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "People/personal/**",
+      "forbidden": [
+        "project"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "personal"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Tasks/Daily/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "required": [
+        "date",
+        "plan_status"
+      ],
+      "optional": [
+        "title",
+        "description",
+        "updated",
+        "lifecycle_status"
+      ],
+      "forbidden": [
+        "lifecycle_status"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "daily-plan"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "personal"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Memory/Logs/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "required": [
+        "month"
+      ],
+      "optional": [
+        "title",
+        "description",
+        "updated",
+        "lifecycle_status"
+      ],
+      "forbidden": [
+        "lifecycle_status"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "log"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "personal"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Memory/Weekly/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "memory"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "personal"
+          ]
+        }
+      }
+    },
+    {
+      "glob": "Memory/Monthly/*.md",
+      "exclude": [
+        "**/INDEX.md"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "memory"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "personal"
+          ]
+        }
+      }
+    }
+  ]
 }

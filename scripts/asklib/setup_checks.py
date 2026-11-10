@@ -12,6 +12,8 @@ import shlex
 import subprocess
 from urllib.parse import quote
 
+from .runtime import MANAGED_RUNTIMES, valid_proof
+
 
 BOOTSTRAP = ("date.md", "INDEX.md", "agents.md", "knowledge-map.md")
 _REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -157,10 +159,8 @@ def _runtime_checks(runtime_status):
         proof = record.get("evidence")
         verified = (
             record.get("state") == "verified"
-            and (record.get("block_present") is True or (name not in ('claude','codex') and record.get('target') is None))
-            and isinstance(proof, dict)
-            and proof.get('bootstrap_files') == list(BOOTSTRAP)
-            and all(isinstance(proof.get(k),dict) and proof[k].get('session_id') and proof[k].get('observed_phrase') for k in ('inside_session','outside_session'))
+            and (record.get("block_present") is True or (name not in MANAGED_RUNTIMES and record.get('target') is None))
+            and valid_proof(proof)
         )
         state = "verified" if verified else (
             "not-configured" if record.get("state") == "not-configured"

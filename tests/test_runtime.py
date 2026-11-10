@@ -217,3 +217,38 @@ class RuntimeTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ExtendedRuntimeTests(unittest.TestCase):
+    setUp = RuntimeTests.setUp
+    tearDown = RuntimeTests.tearDown
+    def test_new_managed_adapters_preserve_and_disconnect(self):
+        for name, relative in [('amp','.config/amp/AGENTS.md'),('droid','.factory/AGENTS.md'),('antigravity','.gemini/GEMINI.md')]:
+            with self.subTest(runtime=name):
+                target=self.home/relative;target.parent.mkdir(parents=True,exist_ok=True)
+                target.write_text('Existing owner guidance.\n')
+                result=rt.connect(self.config,name,home=self.home)
+                self.assertEqual(result['state'],'configured-unverified')
+                self.assertTrue(target.read_text().startswith('Existing owner guidance.\n'))
+                original=target.read_bytes()
+                rt.connect(self.config,name,home=self.home)
+                self.assertEqual(target.read_bytes(),original)
+                self.assertTrue(rt.inspect(self.config,name,home=self.home)['block_present'])
+                rt.disconnect(self.config,name,home=self.home)
+                self.assertIn('Existing owner guidance.',target.read_text())
+                self.assertNotIn('ASK-MANAGED-START',target.read_text())
+
+    def test_new_managed_adapters_reject_symlinks(self):
+        for name, relative in [('amp','.config/amp/AGENTS.md'),('droid','.factory/AGENTS.md'),('antigravity','.gemini/GEMINI.md')]:
+            target=self.home/relative;target.parent.mkdir(parents=True,exist_ok=True)
+            outside=self.base/(name+'-foreign');outside.write_text('preserve')
+            target.symlink_to(outside)
+            with self.assertRaises(rt.RuntimeError):rt.connect(self.config,name,home=self.home)
+            self.assertEqual(outside.read_text(),'preserve')
+
+    def test_manual_proof_invalidated_by_config_drift(self):
+        rt.connect(self.config,'generic',home=self.home)
+        evidence={'bootstrap_files':rt.BOOTSTRAP_ORDER,'inside_session':{'session_id':'one','observed_phrase':'synthetic'},'outside_session':{'session_id':'two','observed_phrase':'synthetic'}}
+        rt.record_verification(self.config,'generic',evidence,home=self.home)
+        data=json.loads(self.config.read_text());data['access']['write']=['Tasks'];self.config.write_text(json.dumps(data))
+        self.assertEqual(rt.inspect(self.config,'generic',home=self.home)['state'],'configured-unverified')

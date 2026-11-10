@@ -16,7 +16,7 @@ When the owner asks to **install ASK**, complete [docs/start-here.md](docs/start
 
 ## Boundaries
 
-Markdown notes with frontmatter and wikilinks are the knowledge source of truth. Graph JSON is derived output. SQLite is reserved for a possible future Agent Task Board and is not the knowledge graph. Access declarations in ASK configuration are guidance; runtime permissions remain under the workspace owner's control.
+Markdown notes with frontmatter and wikilinks are the knowledge source of truth. Graph JSON is derived output. Agent task-board services and their deployment scripts are outside this distribution. Access declarations in ASK configuration are guidance; runtime permissions remain under the workspace owner's control.
 
 Authorized routine writing includes Projects, People, Personal, Tasks, Memory, `date.md`, `goals.md`, root `INDEX.md`, and ordinary `Agents/capabilities/` content. Protected changes to `agents.md`, `knowledge-map.md`, `knowledge-continuity-loop.md`, schema or tag taxonomy, `Agents/rules/**`, roster, and ontology require explicit owner direction. Never assume text enforces these boundaries.
 

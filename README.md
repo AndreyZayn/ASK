@@ -1,4 +1,4 @@
-# ASK — Agentic Knowledge System
+# Agentic System Knowledge (ASK)
 
 ASK is a local-first framework for a private, Obsidian-compatible Markdown knowledge base. Notes with frontmatter and wikilinks are canonical; graph JSON is derived. This public repository contains generic Python tooling, schemas, templates, and documentation, not anyone's private knowledge.
 
@@ -22,9 +22,13 @@ cd ask-public
 python3 scripts/ask.py setup --workspace /path/to/your-workspace --repository OWNER/NAME --create-repository --runtime codex
 ```
 
-Replace `OWNER/NAME` with the private repository you intend to use. Omit `--create-repository` for an existing private repository. If you omit `--repository` entirely, setup creates a usable local workspace but returns exit status 2 (`setup-pending`) until backup is bound. Choose `--runtime claude`, `codex`, `cursor`, or `generic`; `--read-only` avoids content-writer declarations, and `--backup scheduled` requests scheduled backup. Do not assume that runtime configuration means the agent has verified access.
+Replace `OWNER/NAME` with the private repository you intend to use. Omit `--create-repository` for an existing private repository. If you omit `--repository` entirely, setup creates a usable local workspace but returns exit status 2 (`setup-pending`) until backup is bound. Choose `--runtime claude`, `codex`, `amp`, `droid`, `antigravity`, or a manual runtime such as `cursor` or `generic`; `--read-only` avoids content-writer declarations, and `--backup scheduled` requests scheduled backup. Do not assume that runtime configuration means the agent has verified access.
 
 Open `/path/to/your-workspace/Knowledge Base` as a vault in Obsidian, if you use Obsidian. No plugin is required. See [installation](docs/install.md), [runtime verification](docs/runtime.md), [backup and recovery](docs/backup.md), and [upgrades](docs/upgrades.md).
+
+## What a fresh workspace includes
+
+The starter vault supplies routing, durable knowledge capture, eleven reusable professional hats, five separate software workflows, and a task-completion contract. Configurable path profiles validate note identity, state, and retrieval vocabulary alongside links and nearest-index coverage. See [framework coverage and limits](docs/framework-coverage.md) and the [runtime support matrix](docs/runtime.md#runtime-support-matrix). Existing notes and schema customizations are never upgraded automatically.
 
 ## Boundaries
 

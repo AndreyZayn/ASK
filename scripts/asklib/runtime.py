@@ -1,7 +1,7 @@
 """Runtime-neutral enrollment backend for ASK persistent bootstrap.
 
 Controller-integrated helpers that connect an ASK workspace to agent
-runtimes (Claude Code, Codex) or return manual instructions for any other
+runtimes (Claude Code, Codex, Amp, Droid, Antigravity) or return manual instructions for any other
 runtime. Standard library only, Python 3.9 compatible.
 """
 
@@ -26,6 +26,8 @@ __all__ = [
 class RuntimeError(Exception):
     """Enrollment backend error (configuration, state, or I/O)."""
 
+
+MANAGED_RUNTIMES = ('claude', 'codex', 'amp', 'droid', 'antigravity')
 
 BOOTSTRAP_ORDER = ['date.md', 'INDEX.md', 'agents.md', 'knowledge-map.md']
 
@@ -114,6 +116,8 @@ def _normalize_runtime(runtime: str) -> Tuple[Optional[str], str]:
         return 'claude', 'claude'
     if key in ('codex', 'openai-codex'):
         return 'codex', 'codex'
+    if key in MANAGED_RUNTIMES:
+        return key, key
     if not key:
         raise RuntimeError('runtime must be a non-empty name')
     return None, key
@@ -136,6 +140,10 @@ def _expected_target(managed: str, home: Optional[Union[str, Path]]) -> Path:
         else:
             base = Path.home() / '.codex'
         return base / 'AGENTS.md'
+    relative = {'amp': '.config/amp/AGENTS.md', 'droid': '.factory/AGENTS.md',
+                'antigravity': '.gemini/GEMINI.md'}.get(managed)
+    if relative:
+        return (Path(home).expanduser() if home is not None else Path.home()) / relative
     raise RuntimeError('no managed file for this runtime')
 
 
@@ -266,7 +274,7 @@ def _atomic_write_file(path: Path, content: str) -> None:
 def _manual_instructions(ctx: Dict[str, Any], runtime_key: str) -> str:
     dist = str(_dist_ask())
     return (
-        'Manual setup for runtime "%s" (no files were written).\n'
+        'Manual setup for runtime "%s" (no runtime instructions were written).\n'
         '1. Open this workspace in the agent runtime: %s\n'
         '2. Point the runtime instructions at config %s (vault %s).\n'
         '3. Instruct the agent to read, in order: date.md, INDEX.md, '
@@ -274,7 +282,7 @@ def _manual_instructions(ctx: Dict[str, Any], runtime_key: str) -> str:
         'follow knowledge-continuity-loop.md.\n'
         '4. Validate with: %s %s validate --config %s --json\n'
         'Enrollment state is recorded as manual; the owner completes the '
-        'wiring by hand.'
+        'wiring by hand. See docs/runtime.md for surface-specific steps and gaps. '
         % (runtime_key, ctx['workspace'], ctx['config_path'], ctx['vault'],
            shlex.quote('python3'), shlex.quote(dist),
            shlex.quote(str(ctx['config_path']))))
@@ -291,6 +299,7 @@ def connect(config_path: Union[str, Path], runtime: str,
         reg['runtimes'][key] = {
             'target': None,
             'state': 'manual',
+            'config_digest': ctx['config_digest'],
             'workspace': str(ctx['workspace']),
             'config': str(ctx['config_path']),
             'vault': str(ctx['vault']),
@@ -396,6 +405,18 @@ def disconnect(config_path: Union[str, Path], runtime: str,
     }
 
 
+def valid_proof(evidence):
+    """Validate the structure of controller-attested proof, never provider access."""
+    if not isinstance(evidence, dict) or evidence.get('bootstrap_files') != BOOTSTRAP_ORDER:
+        return False
+    sessions = [evidence.get(key) for key in ('inside_session', 'outside_session')]
+    if not all(isinstance(proof, dict) and all(isinstance(proof.get(key), str) and proof[key].strip()
+               for key in ('session_id', 'observed_phrase')) for proof in sessions):
+        return False
+    return (sessions[0]['session_id'] != sessions[1]['session_id']
+            and sessions[0]['observed_phrase'] == sessions[1]['observed_phrase'])
+
+
 def inspect(config_path: Union[str, Path], runtime: str,
             home: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
     """Report enrollment state without modifying files."""
@@ -451,6 +472,10 @@ def inspect(config_path: Union[str, Path], runtime: str,
             result['state'] = 'not-configured'
     else:
         result['target'] = None
+        if entry.get('config_digest') != ctx['config_digest']:
+            result['state'] = 'configured-unverified'
+    if result['state'] == 'verified' and not valid_proof(entry.get('evidence')):
+        result['state'] = 'configured-unverified'
     if isinstance(entry.get('evidence'), dict):
         result['evidence'] = entry['evidence']
     return result
