@@ -63,12 +63,14 @@ def check_inside_symlinks(root, path):
         if cur.is_symlink(): raise AskError('symlink path is not allowed: %s' % cur)
 
 
-def adapter(config, cfgpath):
+def adapter(config, cfgpath, tool_path=None):
     vault = Path(config['vault']).resolve()
     cfgpath = Path(cfgpath).resolve()
     boot = config['bootstrap_files']
     read = config['access']['read']; write = config['access']['write']
-    command = 'python3 %s validate --config %s' % (shlex.quote(str(Path(__file__).resolve())), shlex.quote(str(cfgpath)))
+    local_cli = cfgpath.parent / 'system' / 'scripts' / 'ask.py'
+    ensure_no_symlink_path(local_cli)
+    command = 'python3 %s validate --config %s' % (shlex.quote(str(tool_path or (local_cli if local_cli.is_file() else Path(__file__).resolve()))), shlex.quote(str(cfgpath)))
     lines = ['# Workspace agent bootstrap', '',
              'The owner configured this workspace adapter. Follow the notes in this order:']
     lines += ['%d. `%s`' % (i, vault / p) for i, p in enumerate(boot, 1)]
@@ -90,6 +92,8 @@ def init(args):
     if inside(ws, dist):
         raise AskError('workspace must be outside the distribution')
     vault_rel = safe_rel(args.vault_name or 'Knowledge Base', 'vault name')
+    if vault_rel.parts[0].casefold() in {'system', 'artifacts', 'backups', 'staging', '.ask', '.git'}:
+        raise AskError('vault name overlaps a reserved ASK directory')
     if not ws.exists():
         # parent may be created, but reject symlink ancestry above was checked
         ws.mkdir(parents=True)
@@ -100,10 +104,37 @@ def init(args):
     if ws.exists(): check_inside_symlinks(ws, vault)
     if not inside(vault, ws) or vault.resolve() == ws.resolve():
         raise AskError('vault name must name a directory inside the workspace')
-    planned = [ws/'ask.json', ws/'note.schema.json', ws/'AGENTS.md']
+    planned = [ws/'ask.json', ws/'note.schema.json', ws/'AGENTS.md', ws/'artifacts'/'README.md', ws/'backups'/'README.md', ws/'staging'/'README.md']
     template_root = dist / 'templates' / 'vault'
-    files = sorted(p for p in template_root.rglob('*') if p.is_file())
+    manifest_path = dist / 'install-manifest.json'
+    ensure_no_symlink_path(manifest_path)
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        entries = manifest['files']
+        if manifest.get('version') != 1 or not isinstance(entries, list) or not entries:
+            raise ValueError('invalid manifest shape')
+        rels = [safe_rel(value, 'install manifest path') for value in entries]
+        if len(set(rels)) != len(rels):
+            raise ValueError('duplicate manifest path')
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise AskError('invalid installation manifest: %s' % error)
+    assets = []
+    for rel in rels:
+        if rel.parts[0] not in {'scripts', 'schemas', 'templates', 'docs'} and rel.as_posix() not in {'README.md', 'LICENSE'}:
+            raise AskError('installation manifest contains an unsupported path')
+        src = dist / rel
+        ensure_no_symlink_path(src)
+        if not src.is_file():
+            raise AskError('installation manifest file is missing: %s' % rel)
+        assets.append((src, ws / 'system' / rel))
+    if Path('scripts/ask.py') not in rels or Path('schemas/note.schema.json') not in rels:
+        raise AskError('installation manifest omits required scripts or schema')
+    assets.append((manifest_path, ws / 'system/install-manifest.json'))
+    files = [src for src, _ in assets if inside(src, template_root)]
+    if not files:
+        raise AskError('installation manifest omits vault templates')
     planned += [vault_rel / p.relative_to(template_root) for p in files]
+    planned += [dest for _, dest in assets]
     # Handle nested vault path by joining relative planned paths.
     planned = [p if p.is_absolute() else ws/p for p in planned]
     for p in planned:
@@ -117,10 +148,14 @@ def init(args):
            'bootstrap_files': DEFAULT_BOOTSTRAP, 'access': {'read': ['.'], 'write': []}}
     payloads = [(ws/'ask.json', json.dumps(cfg, indent=2) + '\n'),
                 (ws/'note.schema.json', (dist/'schemas'/'note.schema.json').read_text(encoding='utf-8')),
-                (ws/'AGENTS.md', adapter(dict(cfg, vault=vault), ws/'ask.json'))]
+                (ws/'AGENTS.md', adapter(dict(cfg, vault=vault), ws/'ask.json', ws/'system/scripts/ask.py')),
+                (ws/'artifacts'/'README.md', '# Artifacts\n\nStore working outputs and other functional files here, outside the knowledge base. Treat contents as private and review files before committing or sharing them.\n'),
+                (ws/'backups'/'README.md', '# Local backups\n\nStore owner-created local recovery files here. Contents are ignored by Git; this folder does not create backups automatically.\n'),
+                (ws/'staging'/'README.md', '# Staging\n\nUse this folder for temporary working files. Contents are ignored by Git.\n')]
     for src in files:
         dest = vault / src.relative_to(template_root)
         payloads.append((dest, src.read_text(encoding='utf-8').replace('{{DATE}}', date.today().isoformat())))
+    payloads += [(dest, src.read_text(encoding='utf-8')) for src, dest in assets]
     created=[]
     try:
         for path, content in payloads:

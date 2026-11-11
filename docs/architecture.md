@@ -1,18 +1,20 @@
 # Architecture
 
-ASK is a local framework for an Obsidian-compatible knowledge base. Markdown notes with YAML frontmatter and wikilinks are the canonical records. Obsidian can render and navigate them, but ASK does not require Obsidian or a plugin.
+ASK is a complete local working system containing an Obsidian-compatible knowledge base, reusable software, and a place for functional working artifacts. Markdown notes with YAML frontmatter and wikilinks are the canonical records. Obsidian can render and navigate them, but ASK does not require Obsidian or a plugin.
 
 ## Files and responsibilities
 
 - `templates/vault/` contains neutral Markdown notes copied into a new private workspace. The default bootstrap order is `date.md`, `INDEX.md`, `agents.md`, `knowledge-map.md`.
 - `schemas/note.schema.json` defines shared metadata defaults. Initialization copies it into the private workspace so an owner can extend enum values locally.
 - `scripts/ask.py` is the Python 3.9+ standard-library entry point. The V1 controller provides setup, runtime connection and status, write markers, scoped checkpoints, sync, backup, validation, bootstrap output, and graph export. See [install.md](install.md), [runtime.md](runtime.md), and [backup.md](backup.md).
+- The installed `system/` contains scripts, schemas, templates and guides; `artifacts/` holds private working files outside the graph. The installed scripts are the execution source for hooks, agent guidance and scheduled backup.
+- `install-manifest.json` lists the reviewed distribution files copied into an installation. Update it when adding or removing public scripts, schemas, templates, documentation or the root README/license; unlisted local checkout files are never installed.
 - `ask.json` records the local vault root, schema path, bootstrap order, and advisory read/write path declarations.
 - The generated workspace-root `AGENTS.md` tells an agent how to read the configured bootstrap notes and where to find its local policy.
 
 ## Initialization and configuration
 
-Run `python3 scripts/ask.py setup --workspace PATH [--repository OWNER/NAME --create-repository] [--runtime claude|codex|amp|droid|antigravity|cursor|generic] [--read-only] [--backup scheduled]` to install. The default vault folder is `Knowledge Base`. Setup copies the templates and schema, renders `{{DATE}}`, and creates `ask.json` and a workspace-root `AGENTS.md`. It can bind a private repository, install a staged-snapshot pre-commit hook without overwriting custom hooks, and configure the selected runtime without replacing foreign instructions. Omitting `--repository` leaves a usable local `setup-pending` workspace (exit 2). An installed runtime remains `configured-unverified` pending a real new-session test.
+Run `python3 scripts/ask.py setup --workspace PATH [--repository OWNER/NAME --create-repository] [--runtime claude|codex|amp|droid|antigravity|cursor|generic] [--read-only] [--backup scheduled]` to install. The default vault folder is `Knowledge Base`. Setup copies the portable tools, guides, templates and schema into `system/`, renders `{{DATE}}` for the vault, and creates `artifacts/`, `ask.json` and a workspace-root `AGENTS.md`. After setup, use the installed `system/scripts/ask.py`; normal use does not depend on the original public checkout. It can bind a private repository, install a staged-snapshot pre-commit hook without overwriting custom hooks, and configure the selected runtime without replacing foreign instructions. Omitting `--repository` leaves a usable local `setup-pending` workspace (exit 2). An installed runtime remains `configured-unverified` pending a real new-session test.
 
 The lower-level `init --workspace PATH [--vault-name NAME]` creates a local read-only-declared workspace without remote or runtime setup. Do not run either initialization command into an existing vault or inside the public checkout. Runtime registration does not grant operating-system permissions.
 
