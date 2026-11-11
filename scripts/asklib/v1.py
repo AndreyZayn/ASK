@@ -118,7 +118,6 @@ def _setup(api, args):
             raise api.AskError('private workspace must be outside every existing repository')
         with contextlib.redirect_stdout(io.StringIO()):
             created = api.init(argparse.Namespace(workspace=str(ws), vault_name=vault_name))
-        (ws/'AGENTS.md').write_text(api.workspace_adapter(vault_name), encoding='utf-8')
         (ws/'.gitignore').write_text('.ask/\n.DS_Store\n**/.obsidian/workspace*.json\n**/.obsidian/cache/\n.env\n.env.*\n*.pem\n*.key\n__pycache__/\n', encoding='utf-8')
     gitops.initialize(ws)
     if not cp.exists():

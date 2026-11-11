@@ -1,4 +1,5 @@
 """The installed ASK folder owns its tools, vault, and artifact space."""
+from legacy_fixture import legacy_workspace
 import json
 import os
 from pathlib import Path
@@ -37,6 +38,7 @@ class WholeWorkspaceTest(unittest.TestCase):
             first = subprocess.run(command+['setup','--workspace',str(workspace)], text=True, capture_output=True, env=env)
             self.assertEqual(json.loads(first.stdout)['state'], 'setup-pending', first.stdout)
             note = workspace/'Knowledge Base/goals.md'; before = note.read_bytes()
+            legacy_workspace(workspace, setup=True)
             shutil.rmtree(workspace/'system')
             result = subprocess.run(command+['setup','--workspace',str(workspace),'--runtime','generic'], text=True, capture_output=True, env=env)
             self.assertEqual(json.loads(result.stdout)['state'], 'setup-pending', result.stdout)
@@ -128,6 +130,8 @@ class WholeWorkspaceTest(unittest.TestCase):
             self.assertFalse((workspace / 'backups').exists())
             self.assertFalse((workspace / 'staging').exists())
             self.assertTrue((workspace / 'Knowledge Base/agents.md').is_file())
+            self.assertFalse((workspace / 'ask.json').exists())
+            self.assertFalse((workspace / 'note.schema.json').exists())
             self.assertFalse((workspace/'Knowledge Base/local-draft.md').exists())
             self.assertFalse((workspace/'system/scripts/local_draft.py').exists())
             self.assertIn('system/scripts/ask.py', report['initial_checkpoint_files'])

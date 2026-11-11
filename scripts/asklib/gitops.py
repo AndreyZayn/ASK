@@ -204,8 +204,8 @@ def read_config(path):
     """Return workspace settings as a dict.
 
     An existing ask.json (older installations) is used unchanged. A standard
-    installation has no settings file: the vault is `Knowledge Base` (or the
-    single top-level folder holding agents.md) beside `system/`, machine
+    installation has no settings file: the workspace bootstrap identifies
+    the vault beside `system/`, machine
     rules are the schema shipped with the tools, and the backup repository is
     the private `origin` remote that setup verified.
     """
@@ -220,9 +220,36 @@ def read_config(path):
     found = [p.name for p in sorted(ws.iterdir()) if p.is_dir() and not p.is_symlink()
              and p.name not in ("system", "artifacts") and not p.name.startswith(".")
              and (p / "agents.md").is_file() and not (p / "agents.md").is_symlink()]
-    if len(found) != 1:
-        raise GitError('workspace must contain exactly one knowledge base')
-    vault = found[0]
+    bootstrap = ws / 'AGENTS.md'
+    if bootstrap.is_symlink():
+        raise GitError('workspace bootstrap is a symlink')
+    declarations = []
+    if bootstrap.is_file():
+        declarations = re.findall(
+            r'^The knowledge base is `([^`\r\n]+)/` beside `system/`\.$',
+            bootstrap.read_text(encoding='utf-8'), re.MULTILINE)
+    if len(declarations) > 1:
+        raise GitError('workspace bootstrap has multiple knowledge base declarations')
+    if declarations:
+        vault = declarations[0]
+        path = Path(vault)
+        if (path.is_absolute() or not path.parts or '\\' in vault
+                or any(p in ('.', '..') or p.startswith('.') for p in path.parts)
+                or path.parts[0].casefold() in ('system', 'artifacts')):
+            raise GitError('workspace bootstrap knowledge base path is invalid')
+        target = ws
+        for part in path.parts:
+            target = target / part
+            if target.is_symlink():
+                raise GitError('workspace bootstrap knowledge base path is a symlink')
+        if (not target.is_dir() or (target / 'agents.md').is_symlink()
+                or not (target / 'agents.md').is_file()):
+            raise GitError('workspace bootstrap knowledge base is missing or invalid')
+    elif len(found) == 1:
+        # Older bootstraps can still be read if there is no ambiguity.
+        vault = found[0]
+    else:
+        raise GitError('workspace bootstrap must identify its knowledge base')
     cfg = {"version": 1, "ask_version": "1.0.0", "template_version": "1.0.0",
            "vault_root": vault, "schema_path": LAYOUT_SCHEMA,
            "bootstrap_files": ["date.md", "INDEX.md", "agents.md", "knowledge-map.md"],

@@ -12,6 +12,8 @@ ASK is a complete local working system containing an Obsidian-compatible knowled
 - Default workspace locations and validation rules are defined in installed scripts. Existing legacy `ask.json` installations remain readable without migration.
 - The generated workspace-root `AGENTS.md` tells an agent how to read the configured bootstrap notes and where to find its local policy.
 
+The workspace-root `AGENTS.md` also identifies the knowledge-base directory for the installed scripts. Keep its knowledge-base declaration when editing that file; otherwise ASK can locate the vault only when there is exactly one unambiguous candidate.
+
 ## Initialization and configuration
 
 Run `python3 scripts/ask.py setup --workspace PATH [--repository OWNER/NAME --create-repository] [--runtime claude|codex|amp|droid|antigravity|cursor|generic] [--read-only] [--backup scheduled]` to install. The default vault folder is `Knowledge Base`. Setup copies the portable tools, guides, templates and schema into `system/`, renders `{{DATE}}` for the vault, and creates `artifacts/` and a workspace-root `AGENTS.md`. After setup, use the installed `system/scripts/ask.py`; normal use does not depend on the original public checkout. It can bind a private repository, install a staged-snapshot pre-commit hook without overwriting custom hooks, and configure the selected runtime without replacing foreign instructions. Omitting `--repository` leaves a usable local `setup-pending` workspace (exit 2). An installed runtime remains `configured-unverified` pending a real new-session test.

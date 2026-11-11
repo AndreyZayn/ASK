@@ -40,15 +40,15 @@ class FrameworkStructureTests(unittest.TestCase):
             self.assertTrue((vault / 'Tasks/owner-task-contract.md').is_file())
             self.assertIn('[[Tasks/owner-task-contract]]', tasks)
             self.assertIn('[[Tasks/owner-task-contract]]', routes)
-            config = workspace / 'ask.json'
-            settings = json.loads(config.read_text())
-            settings['validation'] = {'topology': True}
-            config.write_text(json.dumps(settings))
+            # Fresh installs carry no settings file; the derived layout validates topology.
+            self.assertFalse((workspace / 'ask.json').exists())
+            self.assertFalse((workspace / 'note.schema.json').exists())
             report = subprocess.run(
-                [sys.executable, str(ROOT / 'scripts/ask.py'), 'validate', '--config', str(config)],
+                [sys.executable, str(ROOT / 'scripts/ask.py'), 'validate', '--config', str(workspace), '--json'],
                 capture_output=True, text=True,
             )
             self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
+            self.assertEqual(json.loads(report.stdout)['counts']['errors'], 0)
 
 
 if __name__ == '__main__':

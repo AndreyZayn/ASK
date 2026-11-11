@@ -16,7 +16,7 @@ class SetupChecksTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.workspace = Path(self.temp.name)
+        self.workspace = Path(self.temp.name).resolve()
         self.config = self.workspace / "ask.json"
         self.config.write_text(json.dumps({
             "ask_version": "1.0.0", "version": 1, "vault_root": "Knowledge Base",

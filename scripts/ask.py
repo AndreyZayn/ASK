@@ -107,9 +107,10 @@ def init(args):
     vault_rel = safe_rel(args.vault_name or 'Knowledge Base', 'vault name')
     if vault_rel.parts[0].casefold() in {'system', 'artifacts', '.ask', '.git'}:
         raise AskError('vault name overlaps a reserved ASK directory')
-    # Without a settings file the vault is discovered as one top-level folder.
-    if len(vault_rel.parts) != 1 or vault_rel.name.startswith('.'):
-        raise AskError('vault name must be a single visible top-level folder (nested vaults are unsupported)')
+    # The workspace bootstrap identifies the vault without a separate settings file.
+    if (any(part.startswith('.') for part in vault_rel.parts)
+            or any(c in vault_rel.as_posix() for c in '`\r\n')):
+        raise AskError('vault name must use visible folders without backticks or newlines')
     if not ws.exists():
         # parent may be created, but reject symlink ancestry above was checked
         ws.mkdir(parents=True)
