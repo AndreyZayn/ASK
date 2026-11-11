@@ -91,10 +91,10 @@ python3 scripts/ask.py write begin --config /path/to/workspace/ask.json --actor 
 # Save the returned token. Apply the reviewed note edits and required date/log upkeep.
 python3 scripts/ask.py validate --config /path/to/workspace/ask.json --json
 python3 scripts/ask.py checkpoint --config /path/to/workspace/ask.json --files "Knowledge Base/Agents/roster.md" "Knowledge Base/Agents/capabilities/runtimes/INDEX.md" "Knowledge Base/Agents/capabilities/skills/INDEX.md" "Knowledge Base/Memory/Logs/YYYY-MM.md" --message "Register agent and observed capabilities" --owner-approved
-python3 scripts/ask.py write end --config /path/to/workspace/ask.json --token RETURNED_TOKEN
+python3 scripts/ask.py write end --config /path/to/workspace/ask.json --token=RETURNED_TOKEN
 ```
 
-Paths passed to `checkpoint` are workspace-relative; substitute the configured vault name and legacy/custom catalog paths. Include `date.md` only if it needed an update. A local commit without a configured remote returns exit 2 with `backup_pending`; it does not undo the commit. End the write session after the authorized work, report backup pending, and follow the installation backup setup before claiming completion.
+Keep the `--token=` form because an opaque token can begin with a hyphen. Paths passed to `checkpoint` are workspace-relative; substitute the configured vault name and legacy/custom catalog paths. Include `date.md` only if it needed an update. A local commit without a configured remote returns exit 2 with `backup_pending`; it does not undo the commit. End the write session after the authorized work, report backup pending, and follow the installation backup setup before claiming completion.
 
 For read-only enrollment, or when actual runtime permissions prevent writing, supply the proposed changes to the owner and report registration/documentation pending. Do not treat a proposal as an applied record.
 

@@ -15,7 +15,7 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 SCRIPT=ROOT/'scripts/ask.py'
 sys.path.insert(0,str(ROOT/'scripts'))
-from asklib import v1
+from asklib import v1, gitops
 
 
 class OnboardingTests(unittest.TestCase):
@@ -64,6 +64,12 @@ class OnboardingTests(unittest.TestCase):
         result=subprocess.run(['git',*args],cwd=self.ws,capture_output=True,text=True,env=getattr(self,'env',None))
         self.assertEqual(result.returncode,0,result.stderr)
         return result.stdout
+
+    def test_write_end_accepts_opaque_leading_hyphen_token(self):
+        with patch.object(gitops.secrets,'token_urlsafe',return_value='-synthetic-token'):
+            token=gitops.begin_write(self.ws,'synthetic-agent')['token']
+        self.cli('write','end','--config',self.config,'--token='+token,expected=0)
+        self.assertEqual(list((self.ws/'.ask/writers').glob('*')),[])
 
     def test_clean_home_identity_is_local_and_backup_remains_pending(self):
         home=self.root/'isolated home';home.mkdir()
@@ -159,7 +165,7 @@ class OnboardingTests(unittest.TestCase):
             self.assertTrue(result['committed']);self.assertTrue(result['backup_pending'])
             changed=set(self.git('diff-tree','--no-commit-id','--name-only','-r','HEAD').splitlines())
             self.assertEqual(changed,owned)
-            self.cli('write','end','--config',self.config,'--token',token,expected=0)
+            self.cli('write','end','--config',self.config,'--token='+token,expected=0)
             self.assertEqual(unrelated.read_bytes(),unrelated_bytes)
             roster=(self.vault/'Agents/roster.md').read_text()
             skill=(self.vault/proposal['catalogs']['skills']['path']).read_text()
