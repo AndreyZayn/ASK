@@ -17,3 +17,5 @@ To view your notes, open Obsidian and choose **Open folder as vault**, then sele
 For an existing vault, do not run setup into it or overwrite its notes. Review a separate ASK workspace and merge only the notes and settings you choose. For remote work, use an owner-provided authenticated connection to the machine holding the private workspace; setup does not grant remote filesystem access or configure your network.
 
 See [backup, recovery, and uninstall](backup.md) and [upgrades](upgrades.md). Access declarations in configuration are guidance, not enforcement; the owner controls actual runtime permissions.
+
+After technical setup, complete [identity and capability onboarding](onboarding.md). Runtime registration, roster identity, observed capability documentation, and backup are separate outcomes. `doctor` checks technical readiness, not whether those human-facing records are complete.

@@ -9,7 +9,7 @@ import shlex
 import subprocess
 import sys
 
-from . import backup, gitops, runtime, validation, setup_checks
+from . import backup, gitops, runtime, validation, setup_checks, onboarding
 
 VERSION = '1.0.0'
 COMMANDS = {'setup', 'doctor', 'agent', 'checkpoint', 'sync', 'write', 'backup'}
@@ -224,9 +224,10 @@ def dispatch(api, argv):
             p.add_argument('--message',required=True)
             p.add_argument('--owner-approved',action='store_true')
     p=subs.add_parser('agent'); actions=p.add_subparsers(dest='action',required=True)
-    for action in ('connect','disconnect','status','verify'):
+    for action in ('connect','disconnect','status','verify','onboarding'):
         q=actions.add_parser(action); q.add_argument('--config',required=True); q.add_argument('--runtime',required=True)
         if action=='verify': q.add_argument('--evidence',help='JSON file containing controller-observed fresh-session proof')
+        if action=='onboarding': q.add_argument('--profile',help='Sanitized caller-observed JSON; generates proposed rows without writing notes')
     p=subs.add_parser('write'); actions=p.add_subparsers(dest='action',required=True)
     for action in ('begin','end'):
         q=actions.add_parser(action); q.add_argument('--config',required=True)
@@ -241,7 +242,9 @@ def dispatch(api, argv):
         if args.command=='doctor':
             result=_doctor(api,cp); emit(result); return 0 if result['state']=='ready' else 2
         if args.command=='agent':
-            if args.action=='verify':
+            if args.action=='onboarding':
+                result = onboarding.report(api, cp, args.runtime, args.profile)
+            elif args.action=='verify':
                 result = runtime.record_verification(cp,args.runtime,_json(Path(args.evidence))) if args.evidence else {'state':'verification-required','instructions':runtime.verification_prompt(cp)}
             else:
                 result=getattr(runtime,{'status':'inspect'}.get(args.action,args.action))(cp,args.runtime)
