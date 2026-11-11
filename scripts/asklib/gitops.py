@@ -188,17 +188,101 @@ def active_writes(workspace):
     return out
 
 
-def _load_vault(ws):
-    """Return (vault Path, bootstrap list) from ask.json.
+LAYOUT_VAULT = "Knowledge Base"
+LAYOUT_SCHEMA = "system/scripts/note_schema.py"
+DEFAULT_WRITE = ["Projects", "People", "Personal", "Tasks", "Memory", "date.md",
+                 "goals.md", "INDEX.md", "Agents/capabilities"]
 
-    Tolerant only when ask.json is absent. An unreadable or corrupt ask.json
+
+def config_file(path):
+    """Accept a workspace directory or its (possibly absent) ask.json path."""
+    p = Path(path).expanduser().absolute()
+    return p / "ask.json" if p.is_dir() else p
+
+
+def read_config(path):
+    """Return workspace settings as a dict.
+
+    An existing ask.json (older installations) is used unchanged. A standard
+    installation has no settings file: the workspace bootstrap identifies
+    the vault beside `system/`, machine
+    rules are the schema shipped with the tools, and the backup repository is
+    the private `origin` remote that setup verified.
+    """
+    cp = config_file(path)
+    ws = cp.parent
+    if cp.is_symlink() or (ws / 'system').is_symlink() or (ws / 'system/install-manifest.json').is_symlink():
+        raise GitError('workspace settings or system path is a symlink')
+    if cp.exists() or not (ws / "system" / "install-manifest.json").is_file():
+        return json.loads(cp.read_text(encoding="utf-8"))
+    if cp.name != 'ask.json':
+        raise GitError('configuration file does not exist')
+    found = [p.name for p in sorted(ws.iterdir()) if p.is_dir() and not p.is_symlink()
+             and p.name not in ("system", "artifacts") and not p.name.startswith(".")
+             and (p / "agents.md").is_file() and not (p / "agents.md").is_symlink()]
+    bootstrap = ws / 'AGENTS.md'
+    if bootstrap.is_symlink():
+        raise GitError('workspace bootstrap is a symlink')
+    declarations = []
+    if bootstrap.is_file():
+        declarations = re.findall(
+            r'^The knowledge base is `([^`\r\n]+)/` beside `system/`\.$',
+            bootstrap.read_text(encoding='utf-8'), re.MULTILINE)
+    if len(declarations) > 1:
+        raise GitError('workspace bootstrap has multiple knowledge base declarations')
+    if declarations:
+        vault = declarations[0]
+        path = Path(vault)
+        if (path.is_absolute() or not path.parts or '\\' in vault
+                or any(p in ('.', '..') or p.startswith('.') for p in path.parts)
+                or path.parts[0].casefold() in ('system', 'artifacts')):
+            raise GitError('workspace bootstrap knowledge base path is invalid')
+        target = ws
+        for part in path.parts:
+            target = target / part
+            if target.is_symlink():
+                raise GitError('workspace bootstrap knowledge base path is a symlink')
+        if (not target.is_dir() or (target / 'agents.md').is_symlink()
+                or not (target / 'agents.md').is_file()):
+            raise GitError('workspace bootstrap knowledge base is missing or invalid')
+    elif len(found) == 1:
+        # Older bootstraps can still be read if there is no ambiguity.
+        vault = found[0]
+    else:
+        raise GitError('workspace bootstrap must identify its knowledge base')
+    cfg = {"version": 1, "ask_version": "1.0.0", "template_version": "1.0.0",
+           "vault_root": vault, "schema_path": LAYOUT_SCHEMA,
+           "bootstrap_files": ["date.md", "INDEX.md", "agents.md", "knowledge-map.md"],
+           "access": {"read": ["."], "write": []},
+           "validation": {"topology": True}, "backup": {"mode": "session"}}
+    if (ws / ".git").exists():
+        readonly = _git(ws, 'config', '--local', '--get', 'ask.readOnly', check=False)
+        if readonly.returncode == 0:
+            value = readonly.stdout.strip().lower()
+            if value == 'false':
+                cfg['access']['write'] = list(DEFAULT_WRITE)
+            elif value != 'true':
+                raise GitError('invalid local ASK read-only setting')
+        elif readonly.returncode != 1:
+            raise GitError('cannot read local ASK read-only setting')
+        url = _git(ws, "config", "--local", "--get", "remote.origin.url", check=False).stdout.strip()
+        slug = _origin_slug(url) if url else None
+        if slug:
+            cfg["backup"]["repository"] = slug
+    return cfg
+
+
+def _load_vault(ws):
+    """Return (vault Path, bootstrap list) from the workspace settings.
+
+    Tolerant only when no settings exist. An unreadable or corrupt ask.json
     fails closed so protected-path detection never silently degrades.
     """
     cfg_path = ws / "ask.json"
-    if not cfg_path.exists():
+    if not cfg_path.exists() and not (ws / "system" / "install-manifest.json").is_file():
         return ws, []
     try:
-        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        cfg = read_config(cfg_path)
     except (OSError, ValueError) as e:
         raise GitError("cannot read workspace ask.json: %s" % e)
     if not isinstance(cfg, dict):
@@ -286,7 +370,8 @@ def _check_rel(ws, value):
 
 
 def _is_protected(ws, rel):
-    if rel in WORKSPACE_FILES:
+    normalized = rel.casefold()
+    if normalized in {name.casefold() for name in WORKSPACE_FILES} or normalized == 'system' or normalized.startswith('system/'):
         return True
     vault, boot = _load_vault(ws)
     try:

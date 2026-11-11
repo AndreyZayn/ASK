@@ -1,4 +1,5 @@
 """Synthetic profile, upgrade compatibility, and staged-schema regression tests."""
+from legacy_fixture import legacy_result
 import json
 import subprocess
 import sys
@@ -14,7 +15,7 @@ from asklib.path_schema import matches
 
 
 def cli(*args):
-    return subprocess.run([sys.executable, str(ROOT/'scripts/ask.py'), *map(str,args)], capture_output=True, text=True)
+    return legacy_result(subprocess.run([sys.executable, str(ROOT/'scripts/ask.py'), *map(str,args)], capture_output=True, text=True), args)
 
 
 class PathProfileTests(unittest.TestCase):

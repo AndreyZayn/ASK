@@ -11,7 +11,7 @@ governed_by:
 ---
 # Frontmatter Schema
 
-Every note starts with flat YAML frontmatter. The machine-readable schema lives in the workspace next to the configuration file; the owner may extend its `kind`, `scope`, and `lifecycle_status` values there. ASK supports a documented subset of YAML and JSON Schema, described in the installed `system/docs/schema.md`.
+Every note starts with flat YAML frontmatter. The machine-readable rules live in `system/scripts/note_schema.py`; the owner may extend its `kind`, `scope`, and `lifecycle_status` values there. ASK supports a documented subset of YAML and JSON Schema, described in the installed `system/docs/schema.md`.
 
 ## Ordinary required fields
 

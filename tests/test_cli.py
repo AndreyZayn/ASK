@@ -6,6 +6,8 @@ import sys
 import tempfile
 import unittest
 
+from legacy_fixture import legacy_workspace
+
 ROOT = Path(__file__).resolve().parents[1]
 ASK = ROOT / 'scripts' / 'ask.py'
 
@@ -23,36 +25,46 @@ class AskCliTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def init(self, *args):
-        return cli('init', '--workspace', self.workspace, *args)
+    def init(self, *args, legacy=True):
+        # Most tests here customize JSON settings or schema, so they opt into an
+        # explicit legacy workspace; fresh installs themselves write neither file.
+        r = cli('init', '--workspace', self.workspace, *args)
+        if legacy and r.returncode == 0:
+            legacy_workspace(self.workspace)
+        return r
 
     def config(self):
         return self.workspace / 'ask.json'
 
     def test_init_validate_bootstrap_and_safe_graph(self):
-        r = self.init('--vault-name', 'My Vault')
+        r = self.init('--vault-name', 'My Vault', legacy=False)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((self.workspace / 'My Vault' / 'INDEX.md').exists())
-        self.assertEqual(cli('validate', '--config', self.config()).returncode, 0)
-        b = cli('bootstrap', '--config', self.config())
+        self.assertFalse(self.config().exists())
+        self.assertFalse((self.workspace / 'note.schema.json').exists())
+        self.assertIn('`My Vault/`', (self.workspace / 'AGENTS.md').read_text())
+        v = cli('validate', '--config', self.workspace)
+        self.assertEqual(v.returncode, 0, v.stdout + v.stderr)
+        b = cli('bootstrap', '--config', self.workspace)
         self.assertEqual(b.returncode, 0, b.stderr)
         self.assertIn('actual runtime filesystem permissions', b.stdout.lower())
-        g = cli('graph', '--config', self.config())
+        self.assertIn(str(self.workspace / 'My Vault' / 'INDEX.md'), b.stdout)
+        g = cli('graph', '--config', self.workspace)
         self.assertEqual(g.returncode, 0, g.stderr)
         graph = json.loads(g.stdout)
         self.assertTrue(graph['nodes'])
         out = self.base / 'graph.json'
-        self.assertEqual(cli('graph', '--config', self.config(), '--output', out).returncode, 0)
+        self.assertEqual(cli('graph', '--config', self.workspace, '--output', out).returncode, 0)
         self.assertEqual(out.read_text(), g.stdout)
 
     def test_init_preflights_all_outputs_and_never_overwrites(self):
         self.workspace.mkdir()
-        (self.workspace / 'note.schema.json').write_text('keep')
+        (self.workspace / 'AGENTS.md').write_text('keep')
         r = self.init()
         self.assertEqual(r.returncode, 2)
         self.assertIn('output already exists', r.stderr)
-        self.assertEqual((self.workspace / 'note.schema.json').read_text(), 'keep')
-        self.assertFalse((self.workspace / 'ask.json').exists())
+        self.assertEqual((self.workspace / 'AGENTS.md').read_text(), 'keep')
+        self.assertEqual([p.name for p in self.workspace.iterdir()], ['AGENTS.md'])
 
     def test_init_rejects_distribution_and_unsafe_vault_name(self):
         dest = ROOT / 'new-private'
@@ -63,7 +75,7 @@ class AskCliTests(unittest.TestCase):
             ws = self.base / ('unsafe-' + str(i))
             r = cli('init', '--workspace', ws, '--vault-name', name)
             self.assertEqual(r.returncode, 2); self.assertIn('stay within', r.stderr)
-            self.assertFalse((ws / 'ask.json').exists())
+            self.assertFalse(ws.exists())
 
     def test_custom_config_access_and_enum(self):
         self.assertEqual(self.init().returncode, 0)
@@ -168,7 +180,7 @@ class AskCliTests(unittest.TestCase):
         workspace = parent_link / 'new-workspace'
         r = cli('init', '--workspace', workspace)
         self.assertEqual(r.returncode, 2); self.assertIn('symlink path', r.stderr)
-        self.assertFalse((real_parent / 'new-workspace' / 'ask.json').exists())
+        self.assertFalse((real_parent / 'new-workspace' / 'AGENTS.md').exists())
 
         self.assertEqual(self.init().returncode, 0)
         real_output = self.base / 'real-output'; real_output.mkdir()

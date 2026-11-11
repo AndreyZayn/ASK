@@ -14,7 +14,7 @@
     "docs/schema.md",
     "docs/start-here.md",
     "docs/upgrades.md",
-    "schemas/note.schema.json",
+    "scripts/note_schema.py",
     "scripts/ask.py",
     "scripts/asklib/__init__.py",
     "scripts/asklib/backup.py",

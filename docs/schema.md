@@ -1,6 +1,6 @@
 # Note schema and links
 
-Every Markdown note has YAML frontmatter. The private workspace receives an editable copy of `schemas/note.schema.json`; its defaults are generic, and owners may extend enum values there.
+Every Markdown note has YAML frontmatter. The installed script `system/scripts/note_schema.py` contains generic machine validation rules; the knowledge base describes the human-facing contract. Owners may deliberately extend both together. Legacy installations keep their existing JSON schema.
 
 ## Supported JSON Schema subset
 
@@ -70,7 +70,7 @@ Exit status: 0 valid, 1 content findings, 2 invalid configuration/schema or unav
 
 ## Configurable path profiles
 
-`x-ask-path-rules` is an ASK extension to the documented subset, not a standard JSON Schema keyword. It lives in the owner's local `note.schema.json`. Older schemas without this key retain their existing common-field behavior. No validator run edits the schema or notes.
+`x-ask-path-rules` is an ASK extension to the documented subset, not a standard JSON Schema keyword. It lives in the owner's installed `system/scripts/note_schema.py` rules. Older schemas without this key retain their existing common-field behavior. No validator run edits the schema or notes.
 
 Rules are ordered objects with `glob`, optional `exclude` patterns, `required`, `optional`, `forbidden` property lists, and `properties` overrides. Patterns are vault-relative, case-sensitive POSIX paths: `*` matches one path segment, `**` matches zero or more segments, and standard fnmatch `?`/character classes work within a segment. Excludes apply only to their own rule. All properties must be declared in the base schema. Later property definitions replace earlier definitions; `optional` removes a field from required fields, `required` adds it, and forbidden fields accumulate. A matched field that is both required and forbidden fails as a configuration error. Unknown profile keywords, unsafe patterns, and invalid field schemas fail closed.
 

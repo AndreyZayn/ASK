@@ -1,4 +1,12 @@
-{
+"""Generic ASK note frontmatter rules (machine validation data).
+
+This module is data only. ASK parses it with ast.literal_eval and never imports
+or executes it, so a staged or edited copy cannot run code during validation.
+Keep SCHEMA a single literal: dicts, lists, strings, numbers, True/False/None.
+Owners may extend enum values; docs/schema.md documents the supported subset.
+"""
+
+SCHEMA = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ASK note frontmatter",
   "description": "Flat YAML frontmatter for ASK Markdown notes. The ASK validator implements only the subset documented in docs/schema.md; it is not a general JSON Schema engine.",
@@ -11,7 +19,7 @@
     "lifecycle_status",
     "updated"
   ],
-  "additionalProperties": false,
+  "additionalProperties": False,
   "properties": {
     "title": {
       "type": "string",
@@ -116,7 +124,7 @@
         ]
       },
       "minItems": 1,
-      "uniqueItems": true,
+      "uniqueItems": True,
       "description": "Registered retrieval facets; extend this local enum or an applicable path rule with owner direction."
     },
     "aliases": {
@@ -126,7 +134,7 @@
         "minLength": 1
       },
       "minItems": 1,
-      "uniqueItems": true,
+      "uniqueItems": True,
       "description": "Alternative names for the note, as used by Obsidian."
     },
     "cssclasses": {
@@ -136,7 +144,7 @@
         "minLength": 1
       },
       "minItems": 1,
-      "uniqueItems": true,
+      "uniqueItems": True,
       "description": "Obsidian CSS classes applied when the note is rendered."
     },
     "project": {
@@ -165,7 +173,7 @@
         "format": "wikilink-note"
       },
       "minItems": 1,
-      "uniqueItems": true,
+      "uniqueItems": True,
       "description": "Rules or policies that constrain this note."
     },
     "depends_on": {
@@ -175,7 +183,7 @@
         "format": "wikilink-note"
       },
       "minItems": 1,
-      "uniqueItems": true,
+      "uniqueItems": True,
       "description": "Notes that must be read or remain valid for this note to hold."
     },
     "derived_from": {
@@ -185,7 +193,7 @@
         "format": "wikilink-note"
       },
       "minItems": 1,
-      "uniqueItems": true,
+      "uniqueItems": True,
       "description": "Notes this note was produced from."
     },
     "associated_with": {
@@ -195,7 +203,7 @@
         "format": "wikilink-note"
       },
       "minItems": 1,
-      "uniqueItems": true,
+      "uniqueItems": True,
       "description": "Related notes without a stronger relation."
     },
     "date": {
@@ -250,7 +258,7 @@
         "minLength": 1
       },
       "minItems": 1,
-      "uniqueItems": true
+      "uniqueItems": True
     },
     "repositories": {
       "type": "array",
@@ -260,7 +268,7 @@
         "format": "repository-url"
       },
       "minItems": 1,
-      "uniqueItems": true
+      "uniqueItems": True
     }
   },
   "x-ask-path-rules": [

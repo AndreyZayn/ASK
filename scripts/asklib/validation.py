@@ -25,6 +25,8 @@ from datetime import date as _date
 from pathlib import Path
 from urllib.parse import unquote
 
+from . import gitops
+
 __all__ = ['validate']
 
 _SCHEME_RE = re.compile(r'^[A-Za-z][A-Za-z0-9+.\-]*:')
@@ -59,10 +61,10 @@ def _topology_enabled(ctx, config_path):
     except AttributeError:
         pass
     try:
-        raw = json.loads(Path(config_path).read_text(encoding='utf-8'))
+        raw = gitops.read_config(config_path)
         if isinstance(raw, dict) and isinstance(raw.get('validation'), dict):
             return raw['validation'].get('topology') is True
-    except (OSError, ValueError, UnicodeError):
+    except (OSError, ValueError, UnicodeError, gitops.GitError):
         pass
     return False
 
@@ -467,10 +469,7 @@ def _git_run(args, cwd):
 def _validate_staged(api, config_path, files):
     AskError = api.AskError
     try:
-        cfg_abs = Path(config_path).expanduser()
-        if not cfg_abs.is_absolute():
-            cfg_abs = Path.cwd() / cfg_abs
-        cfg_abs = cfg_abs.absolute()
+        cfg_abs = gitops.config_file(config_path)
         r = _git_run(['rev-parse', '--show-toplevel'], cfg_abs.parent)
         if r.returncode != 0:
             raise AskError('not inside a git workspace')
@@ -523,7 +522,12 @@ def _validate_staged(api, config_path, files):
             config_rel = cfg_abs.relative_to(top_resolved).as_posix()
         except ValueError:
             raise AskError('config must be in the workspace git root')
-        if config_rel not in indexed:
+        # A standard installation has no ask.json; its settings come from the
+        # staged system/install-manifest.json layout instead.
+        layout = config_rel not in indexed and not cfg_abs.exists()
+        if not layout and config_rel not in indexed:
+            raise AskError('config must exist in the index: %s' % config_rel)
+        if layout and 'system/install-manifest.json' not in indexed:
             raise AskError('config must exist in the index: %s' % config_rel)
         with tempfile.TemporaryDirectory() as tmp:
             tmp_p = Path(tmp)
@@ -550,9 +554,9 @@ def _validate_staged(api, config_path, files):
                 with dest.open('wb') as f:
                     f.write(c.stdout)
             staged_config = tmp_resolved / config_rel
-            if not staged_config.is_file():
+            if not layout and not staged_config.is_file():
                 raise AskError('config must exist in the index: %s' % config_rel)
-            raw_cfg = json.loads(staged_config.read_text(encoding='utf-8'))
+            raw_cfg = gitops.read_config(staged_config)
             root = raw_cfg.get('vault_root', '')
             # load_config expands a leading '~' (including named-user homes).
             # Reject it before snapshot validation can touch live external notes.
@@ -562,7 +566,7 @@ def _validate_staged(api, config_path, files):
                 raise AskError('staged vault_root must be a relative directory inside the workspace')
             return _validate_snapshot(
                 api, staged_config, files, redact=str(tmp_resolved))
-    except AskError as e:
+    except (AskError, gitops.GitError, OSError, ValueError) as e:
         return _error_report(e)
 
 
