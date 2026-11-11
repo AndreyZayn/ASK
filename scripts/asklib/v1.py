@@ -72,6 +72,24 @@ def _install_hook(api, cp):
         raise api.AskError(r.stderr)
 
 
+def _setup_identity(api, ws):
+    # Fill only missing repository-local fields; preserve the owner's choices.
+    missing = [key for key in ('user.name', 'user.email')
+               if not _git(ws, 'config', '--local', key).stdout.strip()]
+    if not missing:
+        return
+    who = subprocess.run(['gh', 'api', 'user', '--jq', '{login: .login, id: .id}'],
+                         capture_output=True, text=True, timeout=30)
+    if who.returncode:
+        raise api.AskError('cannot obtain GitHub no-reply identity; set repository-local user.name and user.email')
+    user = json.loads(who.stdout)
+    values = {'user.name': user['login'],
+              'user.email': '%s+%s@users.noreply.github.com' % (user['id'], user['login'])}
+    for key in missing:
+        if _git(ws, 'config', '--local', key, values[key]).returncode:
+            raise api.AskError('cannot set repository-local Git identity; configure it manually')
+
+
 def _setup(api, args):
     ws = Path(args.workspace).expanduser().absolute()
     api.ensure_no_symlink_path(ws)
@@ -121,14 +139,7 @@ def _setup(api, args):
         data.setdefault('backup', {})['repository'] = result['remote']['repository']
         if config_changed:
             _save(cp, data)
-        # Set a repository-only no-reply identity from the authenticated GitHub account.
-        if not all(_git(ws, 'config', '--local', key).stdout.strip() for key in ('user.name','user.email')):
-            who = subprocess.run(['gh','api','user','--jq','{login: .login, id: .id}'], capture_output=True, text=True, timeout=30)
-            if who.returncode:
-                raise api.AskError('cannot obtain GitHub no-reply identity; set repository-local user.name and user.email')
-            user = json.loads(who.stdout)
-            _git(ws, 'config', '--local', 'user.name', user['login'])
-            _git(ws, 'config', '--local', 'user.email', '%s+%s@users.noreply.github.com' % (user['id'], user['login']))
+        _setup_identity(api, ws)
         if _git(ws, 'rev-parse', '--verify', 'HEAD').returncode != 0:
             initial = ['ask.json','note.schema.json','AGENTS.md','.gitignore']
             initial += [p.relative_to(ws).as_posix() for p in ctx['vault'].rglob('*') if p.is_file()]
@@ -140,6 +151,8 @@ def _setup(api, args):
         if result['backup'].get('backup_pending'):
             result['pending'].append('GitHub backup is pending; run sync when connected.')
     else:
+        if not all(_git(ws, 'config', '--local', key).stdout.strip() for key in ('user.name', 'user.email')):
+            result['pending'].append('Repository-local Git identity is missing; choose user.name and user.email before checkpointing (see docs/install.md).')
         result['pending'].append('Connect your own PRIVATE GitHub repository with setup --repository OWNER/NAME [--create-repository].')
     if args.runtime:
         previous = runtime.inspect(cp, args.runtime)

@@ -19,3 +19,18 @@ For an existing vault, do not run setup into it or overwrite its notes. Review a
 See [backup, recovery, and uninstall](backup.md) and [upgrades](upgrades.md). Access declarations in configuration are guidance, not enforcement; the owner controls actual runtime permissions.
 
 After technical setup, complete [identity and capability onboarding](onboarding.md). Runtime registration, roster identity, observed capability documentation, and backup are separate outcomes. `doctor` checks technical readiness, not whether those human-facing records are complete.
+
+## Choose the Git commit identity
+
+GitHub authentication and commit authorship are separate. ASK checkpoints require repository-local `user.name` and `user.email`; a global identity alone is intentionally insufficient. Before the first backup, explain the choice: authenticated `setup --repository` fills missing local fields from the signed-in GitHub account, using its login and GitHub noreply address. It preserves existing local fields and does not change global Git settings or account settings. Do not claim backup success if identity lookup, commit, or push fails.
+
+For a different owner-chosen identity, first run `setup --workspace /path/to/your-workspace` without repository flags. This intentionally returns `setup-pending` (exit 2). Then check the two local fields and fill only missing ones with the owner's chosen values:
+
+```sh
+git -C /path/to/your-workspace config --local --get user.name
+git -C /path/to/your-workspace config --local --get user.email
+git -C /path/to/your-workspace config --local user.name "CHOSEN_NAME"
+git -C /path/to/your-workspace config --local user.email "CHOSEN_EMAIL"
+```
+
+Use the owner's exact GitHub noreply address if they choose it; do not guess account identifiers or copy credentials. Review existing fields before replacing either. Rerun the original setup command with the intended private repository and runtime to complete backup/enrollment. An offline local checkpoint can then commit, but it remains backup pending until a verified push succeeds. The roster's local agent ID is separate from the owner's Git author identity.

@@ -1,6 +1,9 @@
 """Exercise read-only onboarding proposals and their reviewed synthetic use."""
 from datetime import date
 import hashlib
+import os
+from types import SimpleNamespace
+from unittest.mock import patch
 import re
 import json
 from pathlib import Path
@@ -11,6 +14,8 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
 SCRIPT=ROOT/'scripts/ask.py'
+sys.path.insert(0,str(ROOT/'scripts'))
+from asklib import v1
 
 
 class OnboardingTests(unittest.TestCase):
@@ -26,7 +31,7 @@ class OnboardingTests(unittest.TestCase):
     def tearDown(self):self.tmp.cleanup()
 
     def cli(self,*args,expected=None):
-        result=subprocess.run([sys.executable,str(SCRIPT),*map(str,args)],capture_output=True,text=True)
+        result=subprocess.run([sys.executable,str(SCRIPT),*map(str,args)],capture_output=True,text=True,env=getattr(self,'env',None))
         if expected is not None:self.assertEqual(result.returncode,expected,result.stdout+result.stderr)
         return result
 
@@ -56,9 +61,48 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(before,self.hashes())
 
     def git(self,*args):
-        result=subprocess.run(['git',*args],cwd=self.ws,capture_output=True,text=True)
+        result=subprocess.run(['git',*args],cwd=self.ws,capture_output=True,text=True,env=getattr(self,'env',None))
         self.assertEqual(result.returncode,0,result.stderr)
         return result.stdout
+
+    def test_clean_home_identity_is_local_and_backup_remains_pending(self):
+        home=self.root/'isolated home';home.mkdir()
+        self.env={key:value for key,value in os.environ.items() if not key.startswith('GIT_')}
+        self.env.update(HOME=str(home),XDG_CONFIG_HOME=str(home/'config'),GIT_CONFIG_NOSYSTEM='1')
+        self.ws=self.root/'identity workspace';self.config=self.ws/'ask.json';self.vault=self.ws/'Private Notes'
+        result=json.loads(self.cli('setup','--workspace',self.ws,'--vault-name','Private Notes',expected=2).stdout)
+        self.assertTrue(any('identity' in pending for pending in result['pending']))
+        files=['ask.json','note.schema.json','AGENTS.md','.gitignore']
+        files.extend(p.relative_to(self.ws).as_posix() for p in self.vault.rglob('*') if p.is_file())
+        args=('checkpoint','--config',self.config,'--files',*files,'--message','Initialize synthetic workspace','--owner-approved')
+        denied=self.cli(*args,expected=2)
+        self.assertIn('missing repo-scoped identity',denied.stdout)
+        self.assertEqual(self.git('diff','--cached','--name-only'),'')
+        self.git('config','--local','user.name','Synthetic Owner')
+        self.git('config','--local','user.email','synthetic@example.invalid')
+        self.git('config','--local','commit.gpgsign','false')
+        result=json.loads(self.cli(*args,expected=2).stdout)
+        self.assertTrue(result['committed']);self.assertTrue(result['backup_pending'])
+        self.assertEqual(self.git('config','--local','user.name').strip(),'Synthetic Owner')
+        self.assertFalse((home/'.gitconfig').exists())
+        self.assertFalse((home/'config/git/config').exists())
+
+    def test_github_identity_fill_preserves_existing_local_choice(self):
+        helper=getattr(v1,'_setup_identity',None)
+        self.assertTrue(callable(helper))
+        for initial in ({},{'user.name':'Chosen Local Name'},{'user.email':'chosen@example.invalid'},
+                        {'user.name':'Chosen Local Name','user.email':'chosen@example.invalid'}):
+            local=dict(initial)
+            def git_fixture(workspace,*args):
+                self.assertEqual(args[:2],('config','--local'))
+                if len(args)==4:local[args[2]]=args[3]
+                return SimpleNamespace(returncode=0,stdout=local.get(args[2],'')+'\n',stderr='')
+            account=SimpleNamespace(returncode=0,stdout='{"login":"synthetic-user","id":123}',stderr='')
+            with patch.object(v1,'_git',side_effect=git_fixture),patch.object(v1.subprocess,'run',return_value=account) as gh:
+                helper(SimpleNamespace(AskError=ValueError),self.ws)
+            self.assertEqual(local['user.name'],initial.get('user.name','synthetic-user'))
+            self.assertEqual(local['user.email'],initial.get('user.email','123+synthetic-user@users.noreply.github.com'))
+            self.assertEqual(gh.call_count,0 if len(initial)==2 else 1)
 
     def test_first_and_second_agent_complete_scoped_cli_write_flow(self):
         self.complete_write_flow(legacy=False)
