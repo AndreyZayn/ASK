@@ -35,8 +35,6 @@ ASK/
 ├── Knowledge Base/   # private Markdown graph and agent knowledge
 ├── system/           # installed scripts, templates, schemas, and guides
 ├── artifacts/        # private working files outside the vault
-├── backups/          # optional local recovery files (ignored by Git)
-├── staging/          # temporary working files (ignored by Git)
 ├── AGENTS.md
 ├── ask.json
 └── note.schema.json

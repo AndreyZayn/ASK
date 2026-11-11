@@ -12,6 +12,21 @@ SOURCE = Path(__file__).resolve().parents[1]
 
 
 class WholeWorkspaceTest(unittest.TestCase):
+    def test_existing_migration_directories_are_preserved(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            workspace = root/'ASK'
+            command = [sys.executable, str(SOURCE/'scripts/ask.py'), 'setup', '--workspace', str(workspace)]
+            first = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(json.loads(first.stdout)['state'], 'setup-pending')
+            for name in ('backups', 'staging'):
+                (workspace/name).mkdir()
+                (workspace/name/'owner-file.txt').write_text('Keep existing owner data.\n')
+            second = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(json.loads(second.stdout)['state'], 'setup-pending')
+            for name in ('backups', 'staging'):
+                self.assertEqual((workspace/name/'owner-file.txt').read_text(), 'Keep existing owner data.\n')
+
     def test_legacy_install_can_rebind_using_source_without_migration(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
@@ -81,7 +96,7 @@ class WholeWorkspaceTest(unittest.TestCase):
     def test_vault_cannot_overlap_the_system_or_working_directories(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
-            for name in ('system', 'system/nested', 'SYSTEM/nested', 'artifacts', 'backups/nested', 'staging', '.git/nested', '.ask'):
+            for name in ('system', 'system/nested', 'SYSTEM/nested', 'artifacts', '.git/nested', '.ask'):
                 with self.subTest(name=name):
                     workspace = root / name.replace('/', '-')
                     result = subprocess.run([sys.executable, str(SOURCE/'scripts/ask.py'), 'setup',
@@ -110,8 +125,8 @@ class WholeWorkspaceTest(unittest.TestCase):
             installed = workspace / 'system/scripts/ask.py'
             self.assertTrue(installed.is_file(), 'ASK must include its own executable tools')
             self.assertTrue((workspace / 'artifacts').is_dir())
-            self.assertTrue((workspace / 'backups').is_dir())
-            self.assertTrue((workspace / 'staging').is_dir())
+            self.assertFalse((workspace / 'backups').exists())
+            self.assertFalse((workspace / 'staging').exists())
             self.assertTrue((workspace / 'Knowledge Base/agents.md').is_file())
             self.assertFalse((workspace/'Knowledge Base/local-draft.md').exists())
             self.assertFalse((workspace/'system/scripts/local_draft.py').exists())

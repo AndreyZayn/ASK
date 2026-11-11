@@ -131,7 +131,7 @@ def _setup(api, args):
             'Installation must also persist this bootstrap in the agent runtime; this workspace file alone does not prove enrollment.\n'
             'Use `system/scripts/ask.py` in this workspace for ASK commands; preserve existing runtime instructions.\n'
             'Configuration declarations do not grant runtime permissions.\n', encoding='utf-8')
-        (ws/'.gitignore').write_text('.ask/\n.DS_Store\n**/.obsidian/workspace*.json\n**/.obsidian/cache/\n.env\n.env.*\n*.pem\n*.key\n__pycache__/\n/backups/*\n!/backups/README.md\n/staging/*\n!/staging/README.md\n', encoding='utf-8')
+        (ws/'.gitignore').write_text('.ask/\n.DS_Store\n**/.obsidian/workspace*.json\n**/.obsidian/cache/\n.env\n.env.*\n*.pem\n*.key\n__pycache__/\n', encoding='utf-8')
     cp, ctx = _context(api, cp)
     report = _assert_valid(api, cp)
     gitops.initialize(ws)
