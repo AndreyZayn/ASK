@@ -21,3 +21,6 @@ governed_by:
 Read the default rule plus only the gates matching the task. All non-index notes in this folder use `kind: rule`; do not add or revise policy without owner direction.
 
 Up: [[Agents/INDEX]]
+
+- [[Agents/rules/task-completion]] — outcome, authority, repair, blocker, and closeout
+- [[Agents/rules/software-development/INDEX]] — separate planning, execution, QA, release, and improvement procedures

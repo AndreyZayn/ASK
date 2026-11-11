@@ -1,9 +1,9 @@
 ---
 title: Requested Rollup Loop
 description: Optional human-requested weekly and monthly summaries.
-kind: reference
+kind: loop
 scope: shared
-lifecycle_status: stable
+loop_status: active
 updated: {{DATE}}
 tags: ["agents", "loops"]
 ---

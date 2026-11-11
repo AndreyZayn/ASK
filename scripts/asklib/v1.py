@@ -141,7 +141,8 @@ def _setup(api, args):
         result['pending'].append('Connect your own PRIVATE GitHub repository with setup --repository OWNER/NAME [--create-repository].')
     if args.runtime:
         previous = runtime.inspect(cp, args.runtime)
-        result['runtime'] = previous if previous.get('block_present') else runtime.connect(cp, args.runtime)
+        keep_verified_manual = previous.get('state') == 'verified' and previous.get('target') is None
+        result['runtime'] = previous if previous.get('block_present') or keep_verified_manual else runtime.connect(cp, args.runtime)
     else:
         result['pending'].append('Enroll each agent runtime with agent connect, then prove a fresh session using agent verify.')
     if args.backup == 'scheduled':

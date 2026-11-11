@@ -119,6 +119,7 @@ class ValidationV1Tests(unittest.TestCase):
 
     # YAML and schema
     def test_unindented_block_list_and_obsidian_fields(self):
+        self.edit_schema(lambda s: s['properties']['tags']['items']['enum'].extend(['alpha', 'beta']))
         self.write('tags.md', note('Tags', extra='tags:\n- alpha\n- beta\naliases:\n- Tag Note\ncssclasses:\n- wide\n'))
         code, report = self.validate()
         self.assertEqual(code, 0, report)

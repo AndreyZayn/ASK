@@ -8,6 +8,7 @@ import re
 import shlex
 import sys
 from datetime import date
+from urllib.parse import urlsplit
 
 RELATIONS = ('governed_by', 'depends_on', 'derived_from', 'associated_with')
 DEFAULT_BOOTSTRAP = ['date.md', 'INDEX.md', 'agents.md', 'knowledge-map.md']
@@ -192,7 +193,7 @@ def validate_schema(path):
             if not isinstance(s['enum'],list) or not s['enum'] or not all(type(x) is py for x in s['enum']):
                 raise AskError('%s: enum must be a non-empty array of %s values' % (name, typ))
         if 'minLength' in s and (type(s['minLength']) is not int or s['minLength']<0): raise AskError('%s: invalid minLength' % name)
-        if 'format' in s and s['format'] not in ('date','wikilink-note'): raise AskError('%s: unsupported schema format' % name)
+        if 'format' in s and s['format'] not in ('date','month','repository-url','wikilink-note'): raise AskError('%s: unsupported schema format' % name)
     def check_property(s, name):
         if not isinstance(s,dict): raise AskError('schema entries must be objects')
         if s.get('type')!='array': return check_scalar(s, name)
@@ -204,7 +205,7 @@ def validate_schema(path):
             if not isinstance(s['items'],dict): raise AskError('schema entries must be objects')
             check_scalar(s['items'], name + ' items')
     if not isinstance(schema,dict): raise AskError('schema entries must be objects')
-    unknown=set(schema)-notes-{'type','required','properties','additionalProperties'}
+    unknown=set(schema)-notes-{'type','required','properties','additionalProperties','x-ask-path-rules'}
     if unknown: raise AskError('unsupported schema keyword: %s'%sorted(unknown)[0])
     if schema.get('type')!='object' or not isinstance(schema.get('properties'),dict): raise AskError('schema root must be an object schema')
     for k,v in schema['properties'].items(): check_property(v, k)
@@ -213,6 +214,8 @@ def validate_schema(path):
     for x in req:
         if x not in schema['properties']: raise AskError('required field is not a declared property: %s'%x)
     if 'additionalProperties' in schema and not isinstance(schema['additionalProperties'],bool): raise AskError('additionalProperties must be boolean')
+    from asklib.path_schema import check_rules
+    check_rules(schema, check_property, AskError)
     return schema
 
 
@@ -407,7 +410,7 @@ def validate_vault(ctx):
     schema=validate_schema(ctx['schema_path']); issues=[]; metas={}; bodies={}; titles={}
     try: files,attachments=note_files(ctx['vault'])
     except AskError as e: return {'counts':{'notes':0,'errors':1},'issues':[{'file':'','message':str(e)}]}, {'nodes':[],'edges':[]}
-    properties=schema['properties']; required=schema.get('required',[])
+    from asklib.path_schema import for_path
     for p in files:
         rel=p.relative_to(ctx['vault']).as_posix()
         try: text=p.read_text(encoding='utf-8')
@@ -415,6 +418,11 @@ def validate_vault(ctx):
         try: meta,body=parse_frontmatter(text)
         except ValueError as e: issue(issues,rel,'frontmatter: %s'%e); continue
         metas[p]=meta; bodies[p]=body
+        properties, required, forbidden = for_path(schema, rel)
+        if set(required) & set(forbidden):
+            raise AskError('conflicting path rules require and forbid a field for %s' % rel)
+        for k in forbidden:
+            if k in meta: issue(issues,rel,'field is forbidden for this path: %s'%k)
         for k in required:
             if k not in meta: issue(issues,rel,'missing required field: %s'%k)
         if schema.get('additionalProperties') is False:
@@ -432,6 +440,15 @@ def validate_vault(ctx):
                     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',val): raise ValueError()
                     date.fromisoformat(val)
                 except ValueError: issue(issues,rel,'%s must be a valid YYYY-MM-DD date'%label)
+            if spec.get('format')=='month' and not re.fullmatch(r'[0-9]{4}-(0[1-9]|1[0-2])', val):
+                issue(issues,rel,'%s must be a valid YYYY-MM month'%label)
+            if spec.get('format')=='repository-url':
+                try:
+                    url=urlsplit(val)
+                    valid=url.scheme=='https' and url.hostname and not url.username and not url.password and not url.query and not url.fragment and len([part for part in url.path.split('/') if part])>=2
+                except ValueError:
+                    valid=False
+                if not valid: issue(issues,rel,'%s must be an HTTPS repository URL without credentials'%label)
             if spec.get('format')=='wikilink-note':
                 try:
                     target=resolve_link(val,p,ctx['vault'],files,True)
@@ -446,6 +463,13 @@ def validate_vault(ctx):
             if spec.get('uniqueItems') and len(set(map(repr,val)))!=len(val): issue(issues,rel,'%s has duplicate items'%k)
             for x in val:
                 if 'items' in spec: check_value(spec['items'],x,'%s item'%k)
+        if 'x-ask-path-rules' in schema:
+            if 'repositories' in meta and meta.get('kind')!='codebase':
+                issue(issues,rel,'repositories requires kind: codebase')
+            if rel.startswith('Tasks/Daily/') and meta.get('kind')=='daily-plan' and meta.get('date') != p.stem:
+                issue(issues,rel,'daily plan date must match its filename')
+            if rel.startswith('Memory/Logs/') and meta.get('kind')=='log' and meta.get('month') != p.stem:
+                issue(issues,rel,'session log month must match its filename')
         if 'title' in meta and isinstance(meta['title'],str):
             t=meta['title'].casefold()
             if t in titles: issue(issues,rel,'duplicate title also used by %s'%titles[t])
@@ -476,7 +500,7 @@ def validate_vault(ctx):
     nodes=[]
     for p in files:
         meta=metas.get(p,{})
-        nodes.append({'id':p.relative_to(ctx['vault']).as_posix(),'type':'note','metadata':{k:meta[k] for k in ('title','description','kind','scope','lifecycle_status','updated','tags','project','domain','canonical') if k in meta}})
+        nodes.append({'id':p.relative_to(ctx['vault']).as_posix(),'type':'note','metadata':{k:meta[k] for k in ('title','description','kind','scope','lifecycle_status','relationship_status','loop_status','capability_status','plan_status','updated','tags','project','domain','canonical') if k in meta}})
     for p in attachments:
         nodes.append({'id':p.relative_to(ctx['vault']).as_posix(),'type':'attachment','metadata':{'kind':'attachment'}})
     nodes.sort(key=lambda n:n['id'])

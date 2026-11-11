@@ -1,14 +1,13 @@
 ---
-title: Software Work Rules
-description: Task-specific gates for software plans, changes, and review.
+title: Software Work Rule
+description: Select the requested software loop before using repository or issue tools.
 kind: rule
 scope: shared
-lifecycle_status: stable
+lifecycle_status: active
 updated: {{DATE}}
-tags: ["agents", "software"]
-governed_by:
-  - "[[Agents/rules/knowledge-work]]"
 ---
-# Software Work Rules
+# Software Work Rule
 
-Plan from the request and nearby project context, identify affected files and validation, then implement only authorized changes. Preserve unrelated edits, verify behavior with relevant tests, and review the diff for scope and secrets before handoff. Report failures and untested paths honestly; do not claim a review or deployment you did not perform. Record durable design decisions in [[Projects/INDEX]] rather than an ephemeral transcript. Publication, runtime setup, and destructive changes require explicit authority.
+Enter [[Agents/rules/software-development/INDEX]] and read the selected procedure with its loop before issue lookup, repository inspection, implementation, or review tools. Planning, implementation, QA, release, and process improvement are separate requests. Load [[Agents/rules/task-completion]] for execution and keep the current authorized target explicit. Use the matching [[Agents/hats/INDEX|hat]] and live repository instructions.
+
+Project notes explain durable behavior and decisions; a development log holds implementation and verification history. Neither replaces live source or test evidence.

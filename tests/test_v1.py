@@ -39,6 +39,27 @@ class V1Tests(unittest.TestCase):
         self.assertEqual(self.cli('validate', '--config', cfg, '--json').returncode, 0)
         self.assertTrue(json.loads(cfg.read_text())['access']['write'])
 
+    def test_setup_preserves_only_current_valid_manual_proof(self):
+        cfg = self.setup_pending()
+        self.assertEqual(self.cli('agent','connect','--config',cfg,'--runtime','generic').returncode,0)
+        evidence = self.base/'synthetic-evidence.json'
+        evidence.write_text(json.dumps({'bootstrap_files':['date.md','INDEX.md','agents.md','knowledge-map.md'],
+            'inside_session':{'session_id':'synthetic-inside','observed_phrase':'fixture'},
+            'outside_session':{'session_id':'synthetic-outside','observed_phrase':'fixture'}}))
+        self.assertEqual(self.cli('agent','verify','--config',cfg,'--runtime','generic','--evidence',evidence).returncode,0)
+        again = self.cli('setup','--workspace',self.ws,'--runtime','generic')
+        self.assertEqual(json.loads(again.stdout)['runtime']['state'],'verified')
+        registry = self.ws/'.ask/runtime.json'
+        data=json.loads(registry.read_text())
+        data['runtimes']['generic']['evidence']['outside_session']['session_id']='synthetic-inside'
+        registry.write_text(json.dumps(data))
+        again = self.cli('setup','--workspace',self.ws,'--runtime','generic')
+        self.assertNotEqual(json.loads(again.stdout)['runtime']['state'],'verified')
+        self.assertEqual(self.cli('agent','verify','--config',cfg,'--runtime','generic','--evidence',evidence).returncode,0)
+        data=json.loads(cfg.read_text());data['access']['write']=[];cfg.write_text(json.dumps(data))
+        again = self.cli('setup','--workspace',self.ws,'--runtime','generic')
+        self.assertNotEqual(json.loads(again.stdout)['runtime']['state'],'verified')
+
     def test_setup_refuses_foreign_existing_workspace(self):
         self.ws.mkdir()
         (self.ws / 'ask.json').write_text('{"version": 1}')

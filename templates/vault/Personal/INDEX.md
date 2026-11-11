@@ -2,7 +2,7 @@
 title: Personal Index
 description: Catalog of personal notes, plans, and logs.
 kind: index
-scope: shared
+scope: personal
 lifecycle_status: empty
 updated: {{DATE}}
 tags: ["personal", "index"]

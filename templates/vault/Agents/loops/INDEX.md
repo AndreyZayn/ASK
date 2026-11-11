@@ -13,3 +13,9 @@ tags: ["agents", "loops"]
 - [[Agents/loops/rollup]] — optional requested summaries
 
 This catalog is guidance, not a scheduler. Nothing here starts a runtime or an AI background job.
+
+- [[Agents/loops/software-planning]]
+- [[Agents/loops/software-development]]
+- [[Agents/loops/software-qa-acceptance]]
+- [[Agents/loops/software-release-operations]]
+- [[Agents/loops/software-practice-improvement]]
