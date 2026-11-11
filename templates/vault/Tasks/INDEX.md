@@ -11,7 +11,7 @@ governed_by:
 ---
 # Tasks Index
 
-Task lists use `kind: task-list`; daily plans use `kind: daily-plan`. Move items between state notes without duplicating their authoritative state:
+Task lists use `kind: task-list`; daily plans use `kind: daily-plan`. Follow [[Tasks/owner-task-contract]] for accepted commitments, ownership, evidence, and state. Move items between state notes without duplicating their authoritative state:
 
 - [[Tasks/Backlog]] — proposed, not yet active
 - [[Tasks/Active]] — selected, not started

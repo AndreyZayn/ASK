@@ -59,6 +59,8 @@ def _install_hook(api, cp):
     hooks.mkdir(parents=True, exist_ok=True)
     hook = hooks / 'pre-commit'
     api.ensure_no_symlink_path(hook)
+    if hook.exists() and hook.stat().st_nlink != 1:
+        raise api.AskError('managed hook path is a hardlink; original files preserved')
     command = '%s %s validate --config %s --staged --json' % tuple(shlex.quote(str(x)) for x in (sys.executable, Path(api.__file__).resolve(), cp))
     content = '#!/bin/sh\n# ASK managed staged-snapshot validator\nexec '+command+'\n'
     if hook.exists() and '# ASK managed staged-snapshot validator' not in hook.read_text():

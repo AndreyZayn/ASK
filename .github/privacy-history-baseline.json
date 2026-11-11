@@ -1,3 +1,4 @@
 {
-  "author_commits": ["42ad9010a9fbdecc5e6772b753af1e8582fcab5c"]
+  "author_commits": ["42ad9010a9fbdecc5e6772b753af1e8582fcab5c"],
+  "allowed_author_email_from_commits": ["26b7c963c883d741f789bfa538bfb1017fd4b94c"]
 }

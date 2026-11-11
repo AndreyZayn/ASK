@@ -85,6 +85,20 @@ class PathBoundaryTests(unittest.TestCase):
         self.assertFalse(outside.exists())
         self.assertTrue((hooks / 'pre-commit').is_symlink())
 
+    def test_hardlinked_managed_hook_preserves_external_file_and_mode(self):
+        hooks = self.ws / '.ask/hooks'
+        hooks.mkdir(parents=True)
+        outside = self.base / 'external-hook'
+        original = '# ASK managed staged-snapshot validator\n# Keep this file\n'
+        outside.write_text(original, encoding='utf-8')
+        outside.chmod(0o640)
+        os.link(outside, hooks / 'pre-commit')
+        with self.assertRaisesRegex(ask.AskError, 'hardlink'):
+            v1._install_hook(ask, self.config)
+        self.assertEqual(outside.read_text(encoding='utf-8'), original)
+        self.assertEqual(outside.stat().st_mode & 0o777, 0o640)
+        self.assertEqual((hooks / 'pre-commit').stat().st_ino, outside.stat().st_ino)
+
     def test_dangling_default_hook_is_preserved_without_rebinding(self):
         hooks = self.ws / '.git/hooks'
         hooks.mkdir(parents=True, exist_ok=True)

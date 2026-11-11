@@ -14,7 +14,7 @@ Authorized implementation, fix, or accepted-plan execution. Read [[Agents/loops/
 
 ## Procedure
 
-Read live source and the project repository contract. Prepare the documented local environment, implement a focused change, and exercise relevant behavior and failures with synthetic fixtures. Inspect the complete diff. Obtain independent review for consequential permission, persistence, migration, or deployment changes when required by the project. Repair acceptance failures, rerun affected checks, and deliver only to the authorized target.
+Read live source, the project repository contract, and [[Agents/rules/software-development/principles]]. Prepare the documented local environment, implement a focused change, and exercise relevant behavior and failures with synthetic fixtures. Inspect the complete diff. Obtain independent review for consequential permission, persistence, migration, or deployment changes when required by the project. For schema and data changes follow [[Agents/rules/software-development/database-management]]. Repair acceptance failures, rerun affected checks, and deliver only to the authorized target. Use [[Agents/rules/software-development/pull-request-handoff]] when a PR is requested.
 
 ## Completion
 
