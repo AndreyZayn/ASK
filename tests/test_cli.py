@@ -42,7 +42,7 @@ class AskCliTests(unittest.TestCase):
         self.assertTrue((self.workspace / 'My Vault' / 'INDEX.md').exists())
         self.assertFalse(self.config().exists())
         self.assertFalse((self.workspace / 'note.schema.json').exists())
-        self.assertIn('`My Vault/`', (self.workspace / 'AGENTS.md').read_text())
+        self.assertFalse((self.workspace / 'AGENTS.md').exists())
         v = cli('validate', '--config', self.workspace)
         self.assertEqual(v.returncode, 0, v.stdout + v.stderr)
         b = cli('bootstrap', '--config', self.workspace)
@@ -59,12 +59,13 @@ class AskCliTests(unittest.TestCase):
 
     def test_init_preflights_all_outputs_and_never_overwrites(self):
         self.workspace.mkdir()
-        (self.workspace / 'AGENTS.md').write_text('keep')
+        (self.workspace / 'artifacts').mkdir()
+        (self.workspace / 'artifacts' / 'README.md').write_text('keep')
         r = self.init()
         self.assertEqual(r.returncode, 2)
         self.assertIn('output already exists', r.stderr)
-        self.assertEqual((self.workspace / 'AGENTS.md').read_text(), 'keep')
-        self.assertEqual([p.name for p in self.workspace.iterdir()], ['AGENTS.md'])
+        self.assertEqual((self.workspace / 'artifacts' / 'README.md').read_text(), 'keep')
+        self.assertEqual([p.name for p in self.workspace.iterdir()], ['artifacts'])
 
     def test_init_rejects_distribution_and_unsafe_vault_name(self):
         dest = ROOT / 'new-private'
