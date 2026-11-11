@@ -127,6 +127,18 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(list((self.ws/'.ask/writers').glob('*')),[])
         self.assertFalse((self.ws/'.ask/runtime.json').exists())
 
+    def test_fresh_people_scope_registry_and_existing_layout_preservation(self):
+        registry=self.vault/'People/personal/INDEX.md'
+        self.assertTrue(registry.is_file())
+        self.assertIn('[[People/personal/INDEX]]',(self.vault/'People/INDEX.md').read_text())
+        cfg=json.loads(self.config.read_text());cfg['validation']={'topology':True};self.config.write_text(json.dumps(cfg))
+        self.cli('validate','--config',self.config,'--json',expected=0)
+        (self.vault/'People/INDEX.md').write_text('Owner custom people layout.\n')
+        registry.unlink();before=self.hashes()
+        self.cli('init','--workspace',self.ws,'--vault-name','Private Notes',expected=2)
+        self.assertEqual(before,self.hashes())
+        self.assertFalse(registry.exists())
+
     def test_fresh_hierarchy_and_legacy_flat_catalogs(self):
         for name in ('skills','integrations','plugins','runtimes','snapshots'):
             self.assertTrue((self.vault/('Agents/capabilities/'+name+'/INDEX.md')).is_file())
