@@ -204,8 +204,8 @@ def read_config(path):
     """Return workspace settings as a dict.
 
     An existing ask.json (older installations) is used unchanged. A standard
-    installation has no settings file: the workspace bootstrap identifies
-    the vault beside `system/`, machine
+    installation has no root settings file: the installed manifest identifies
+    the vault, machine
     rules are the schema shipped with the tools, and the backup repository is
     the private `origin` remote that setup verified.
     """
@@ -217,39 +217,39 @@ def read_config(path):
         return json.loads(cp.read_text(encoding="utf-8"))
     if cp.name != 'ask.json':
         raise GitError('configuration file does not exist')
-    found = [p.name for p in sorted(ws.iterdir()) if p.is_dir() and not p.is_symlink()
-             and p.name not in ("system", "artifacts") and not p.name.startswith(".")
-             and (p / "agents.md").is_file() and not (p / "agents.md").is_symlink()]
-    bootstrap = ws / 'AGENTS.md'
-    if bootstrap.is_symlink():
-        raise GitError('workspace bootstrap is a symlink')
-    declarations = []
-    if bootstrap.is_file():
-        declarations = re.findall(
-            r'^The knowledge base is `([^`\r\n]+)/` beside `system/`\.$',
-            bootstrap.read_text(encoding='utf-8'), re.MULTILINE)
-    if len(declarations) > 1:
-        raise GitError('workspace bootstrap has multiple knowledge base declarations')
-    if declarations:
+    try:
+        manifest = json.loads((ws / 'system/install-manifest.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError) as error:
+        raise GitError('cannot read installed manifest: %s' % error)
+    if not isinstance(manifest, dict) or manifest.get('version') != 1:
+        raise GitError('invalid installed manifest')
+    vault = manifest.get('vault_root')
+    if 'vault_root' not in manifest:
+        # V1.1.0 installations used this generated file to remember a custom
+        # vault. Read it only for compatibility; new installs never need it.
+        old = ws / 'AGENTS.md'
+        if old.is_symlink():
+            raise GitError('legacy workspace bootstrap is a symlink')
+        declarations = (re.findall(r'^The knowledge base is `([^`\r\n]+)/` beside `system/`\.$',
+                                   old.read_text(encoding='utf-8'), re.MULTILINE)
+                        if old.is_file() else [])
+        if len(declarations) > 1:
+            raise GitError('legacy workspace has multiple vault declarations')
+        if not declarations:
+            raise GitError('older installation needs its vault_root in system/install-manifest.json')
         vault = declarations[0]
-        path = Path(vault)
-        if (path.is_absolute() or not path.parts or '\\' in vault
-                or any(p in ('.', '..') or p.startswith('.') for p in path.parts)
-                or path.parts[0].casefold() in ('system', 'artifacts')):
-            raise GitError('workspace bootstrap knowledge base path is invalid')
-        target = ws
-        for part in path.parts:
-            target = target / part
-            if target.is_symlink():
-                raise GitError('workspace bootstrap knowledge base path is a symlink')
-        if (not target.is_dir() or (target / 'agents.md').is_symlink()
-                or not (target / 'agents.md').is_file()):
-            raise GitError('workspace bootstrap knowledge base is missing or invalid')
-    elif len(found) == 1:
-        # Older bootstraps can still be read if there is no ambiguity.
-        vault = found[0]
-    else:
-        raise GitError('workspace bootstrap must identify its knowledge base')
+    if not isinstance(vault, str) or not vault or '\\' in vault:
+        raise GitError('installed manifest vault path is invalid')
+    path = Path(vault)
+    if (path.is_absolute() or not path.parts or str(path) == '.' or path.parts[0].startswith('~')
+            or any(part == '..' or part.startswith('.') for part in path.parts)
+            or path.parts[0].casefold() in ('system', 'artifacts')):
+        raise GitError('installed manifest vault path is invalid')
+    target = ws
+    for part in path.parts:
+        target = target / part
+        if target.is_symlink():
+            raise GitError('knowledge base path is a symlink')
     cfg = {"version": 1, "ask_version": "1.0.0", "template_version": "1.0.0",
            "vault_root": vault, "schema_path": LAYOUT_SCHEMA,
            "bootstrap_files": ["date.md", "INDEX.md", "agents.md", "knowledge-map.md"],

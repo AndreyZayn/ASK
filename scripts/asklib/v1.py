@@ -11,7 +11,7 @@ import sys
 
 from . import backup, gitops, runtime, validation, setup_checks, onboarding
 
-VERSION = '1.1.0'
+VERSION = '1.1.1'
 COMMANDS = {'setup', 'doctor', 'agent', 'checkpoint', 'sync', 'write', 'backup'}
 
 

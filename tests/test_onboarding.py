@@ -91,6 +91,9 @@ class OnboardingTests(unittest.TestCase):
         self.git('config','--local','user.name','Synthetic Owner')
         self.git('config','--local','user.email','synthetic@example.invalid')
         self.git('config','--local','commit.gpgsign','false')
+        # Keep Git's asynchronous maintenance from racing temporary-directory cleanup.
+        self.git('config','--local','maintenance.auto','false')
+        self.git('config','--local','gc.auto','0')
         unrelated=['unrelated.txt','Private Notes/Personal/unrelated.md']
         for rel in unrelated:(self.ws/rel).write_text('Unrelated owner work.\n')
         self.git('add','--',unrelated[0])
@@ -132,6 +135,8 @@ class OnboardingTests(unittest.TestCase):
         self.git('config','--local','user.name','Synthetic Owner')
         self.git('config','--local','user.email','synthetic@example.invalid')
         self.git('config','--local','commit.gpgsign','false')
+        self.git('config','--local','maintenance.auto','false')
+        self.git('config','--local','gc.auto','0')
         result=json.loads(self.cli(*args,expected=2).stdout)
         self.assertTrue(result['committed']);self.assertTrue(result['backup_pending'])
         self.assertEqual(self.git('config','--local','user.name').strip(),'Synthetic Owner')

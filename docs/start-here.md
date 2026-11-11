@@ -31,3 +31,7 @@ Use `codex`, `cursor`, or the other runtime's name as appropriate. Follow with t
 ## Share ASK with another person
 
 Send them the public repository link and the README prompt. They repeat installation using their own folders, agent accounts, and private GitHub repository. They do not register with the project's author or receive access to anyone else's vault. Shared team vaults and their permissions need a separate, explicit setup.
+
+## Public repository contributions
+
+Keep public changes generic: never commit private knowledge, identities, local paths, credentials, operational data, or private history. Use synthetic workspaces for development and run `python3 -m unittest discover -s tests -v` for implementation changes. Preserve owner data and existing runtime instructions; do not install or configure a real runtime or schedule work during development without the owner's request. Agent Tasks is outside the public distribution. Follow the private workspace's canonical knowledge-base policy for authorized work; declared access does not grant operating-system permissions.

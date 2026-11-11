@@ -130,6 +130,7 @@ class WholeWorkspaceTest(unittest.TestCase):
             self.assertFalse((workspace / 'backups').exists())
             self.assertFalse((workspace / 'staging').exists())
             self.assertTrue((workspace / 'Knowledge Base/agents.md').is_file())
+            self.assertFalse((workspace / 'AGENTS.md').exists())
             self.assertFalse((workspace / 'ask.json').exists())
             self.assertFalse((workspace / 'note.schema.json').exists())
             self.assertFalse((workspace/'Knowledge Base/local-draft.md').exists())

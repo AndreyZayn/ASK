@@ -6,7 +6,7 @@ ASK is a local-first working system: an ASK folder containing a private, Obsidia
 
 On macOS, give your local agent this prompt:
 
-> Install ASK from https://github.com/AndreyZayn/ASK for me. Read AGENTS.md and docs/start-here.md and complete their installation checklist. Create my own complete ASK folder, with Knowledge Base/, system/scripts/, and artifacts/ inside it, and set up my private GitHub backup. Use the installed scripts within that ASK folder after setup. Register this agent in the new workspace’s generated roster, document its actually observed capabilities and discovery coverage with evidence and limits, and persist the four-note bootstrap in its actual runtime, preserving existing instructions. Verify a fresh session inside the workspace and from another directory. Ask for the workspace and repository choices you need, and tell me what remains unverified. Show me which folder to open in Obsidian.
+> Install ASK from https://github.com/AndreyZayn/ASK for me. Read docs/start-here.md and complete its installation checklist. Create my own complete ASK folder, with Knowledge Base/, system/scripts/, and artifacts/ inside it, and set up my private GitHub backup. Use the installed scripts within that ASK folder after setup. Register this agent in the new workspace’s generated roster, document its actually observed capabilities and discovery coverage with evidence and limits, and persist the four-note bootstrap in its actual runtime, preserving existing instructions. Verify a fresh session inside the workspace and from another directory. Ask for the workspace and repository choices you need, and tell me what remains unverified. Show me which folder to open in Obsidian.
 
 Your agent needs local file and command access. You supply your own agent account and GitHub authentication; ASK has no central registration service. Each person gets their own complete ASK folder and private repository. See [the agent installation checklist](docs/start-here.md), including how to connect another agent later.
 
@@ -34,9 +34,10 @@ Open `/path/to/your-workspace/Knowledge Base` as a vault in Obsidian, if you use
 ASK/
 ├── Knowledge Base/   # private Markdown graph and agent knowledge
 ├── system/           # installed scripts, templates, schemas, and guides
-├── artifacts/        # private working files outside the vault
-└── AGENTS.md
+└── artifacts/        # private working files outside the vault
 ```
+
+`Knowledge Base/agents.md` is the single canonical agent policy. Each agent's own runtime receives a bootstrap pointing to it; a fresh ASK workspace has no second `AGENTS.md` at its root.
 
 The human-readable schema lives in `Knowledge Base/frontmatter-schema.md`; machine validation rules live in `system/scripts/note_schema.py`. New standard installations do not create `ask.json` or `note.schema.json`. Existing legacy configuration is preserved.
 

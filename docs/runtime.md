@@ -1,6 +1,6 @@
 # Runtime connection and proof
 
-`setup --workspace PATH [--repository OWNER/NAME --create-repository] [--runtime claude|codex|amp|droid|antigravity|cursor|generic] [--read-only] [--backup scheduled]` configures the selected runtime when supported, without replacing unrelated instructions. The workspace-root `AGENTS.md` is not proof that every agent reads it. Every installing agent should explicitly persist the ordered bootstrap in **its actual runtime**: `date.md`, `INDEX.md`, `agents.md`, `knowledge-map.md`. If automatic registration is unsupported, report the exact manual step and leave the connection unverified. Preserve existing owner and third-party instructions.
+`setup --workspace PATH [--repository OWNER/NAME --create-repository] [--runtime claude|codex|amp|droid|antigravity|cursor|generic] [--read-only] [--backup scheduled]` configures the selected runtime when supported, without replacing unrelated instructions. Every installing agent should explicitly persist the ordered bootstrap in **its actual runtime**: `date.md`, `INDEX.md`, `agents.md`, `knowledge-map.md`. The canonical policy is the knowledge base's `agents.md`; ASK creates no second policy file at the workspace root. If automatic registration is unsupported, report the exact manual step and leave the connection unverified. Preserve existing owner and third-party instructions.
 
 From the public ASK checkout, inspect the selected connection:
 

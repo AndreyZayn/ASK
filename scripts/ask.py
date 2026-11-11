@@ -87,17 +87,6 @@ def adapter(config, cfgpath, tool_path=None):
     return '\n'.join(lines) + '\n'
 
 
-def workspace_adapter(vault_name):
-    return ('# ASK workspace agent bootstrap\n\n'
-            'Resolve paths relative to the directory containing this file.\n'
-            'Delegated workers with `KB_ACCESS: none` must skip knowledge-base access.\n'
-            'The knowledge base is `' + vault_name + '/` beside `system/`.\n'
-            'Read `date.md`, `INDEX.md`, `agents.md`, and `knowledge-map.md` in that order.\n'
-            'Then follow `knowledge-continuity-loop.md` before writing.\n'
-            'Use `system/scripts/ask.py` for validation and other ASK commands.\n'
-            'Persist this bootstrap in each installing runtime; configuration does not grant permissions.\n')
-
-
 def init(args):
     dist = Path(__file__).resolve().parents[1]
     ws = Path(args.workspace).expanduser().absolute()
@@ -107,10 +96,9 @@ def init(args):
     vault_rel = safe_rel(args.vault_name or 'Knowledge Base', 'vault name')
     if vault_rel.parts[0].casefold() in {'system', 'artifacts', '.ask', '.git'}:
         raise AskError('vault name overlaps a reserved ASK directory')
-    # The workspace bootstrap identifies the vault without a separate settings file.
-    if (any(part.startswith('.') for part in vault_rel.parts)
+    if (vault_rel.parts[0].startswith('~') or any(part.startswith('.') for part in vault_rel.parts)
             or any(c in vault_rel.as_posix() for c in '`\r\n')):
-        raise AskError('vault name must use visible folders without backticks or newlines')
+        raise AskError('vault name must use visible relative folders without tilde, backticks or newlines')
     if not ws.exists():
         # parent may be created, but reject symlink ancestry above was checked
         ws.mkdir(parents=True)
@@ -122,7 +110,7 @@ def init(args):
     if not inside(vault, ws) or vault.resolve() == ws.resolve():
         raise AskError('vault name must name a directory inside the workspace')
     # No ask.json or root schema: settings follow from this layout (see gitops.read_config).
-    planned = [ws/'AGENTS.md', ws/'artifacts'/'README.md']
+    planned = [ws/'artifacts'/'README.md']
     template_root = dist / 'templates' / 'vault'
     manifest_path = dist / 'install-manifest.json'
     ensure_no_symlink_path(manifest_path)
@@ -162,12 +150,17 @@ def init(args):
             raise AskError('output already exists: %s' % p)
     for p in planned:
         p.parent.mkdir(parents=True, exist_ok=True)
-    payloads = [(ws/'AGENTS.md', workspace_adapter(vault_rel.as_posix())),
-                (ws/'artifacts'/'README.md', '# Artifacts\n\nStore working outputs and other functional files here, outside the knowledge base. Treat contents as private and review files before committing or sharing them.\n')]
+    payloads = [(ws/'artifacts'/'README.md', '# Artifacts\n\nStore working outputs and other functional files here, outside the knowledge base. Treat contents as private and review files before committing or sharing them.\n')]
     for src in files:
         dest = vault / src.relative_to(template_root)
         payloads.append((dest, src.read_text(encoding='utf-8').replace('{{DATE}}', date.today().isoformat())))
-    payloads += [(dest, src.read_text(encoding='utf-8')) for src, dest in assets]
+    for src, dest in assets:
+        if dest == ws / 'system/install-manifest.json':
+            # Bind the installed tools to the chosen vault in the existing manifest.
+            content = json.dumps(dict(manifest, vault_root=vault_rel.as_posix()), indent=2) + '\n'
+        else:
+            content = src.read_text(encoding='utf-8')
+        payloads.append((dest, content))
     created=[]
     try:
         for path, content in payloads:
