@@ -5,9 +5,9 @@
 From the public ASK checkout, inspect the selected connection:
 
 ```sh
-python3 /path/to/your-workspace/system/scripts/ask.py agent status --config /path/to/your-workspace/ask.json --runtime codex
-python3 /path/to/your-workspace/system/scripts/ask.py doctor --config /path/to/your-workspace/ask.json --json
-python3 /path/to/your-workspace/system/scripts/ask.py agent verify --config /path/to/your-workspace/ask.json --runtime codex
+python3 /path/to/your-workspace/system/scripts/ask.py agent status --config /path/to/your-workspace --runtime codex
+python3 /path/to/your-workspace/system/scripts/ask.py doctor --config /path/to/your-workspace --json
+python3 /path/to/your-workspace/system/scripts/ask.py agent verify --config /path/to/your-workspace --runtime codex
 ```
 
 Status and doctor emit JSON. `agent verify` prints a procedure; it does **not** secretly invoke the agent or certify a session by itself. Start a genuinely **new** session in the selected runtime, first inside the private workspace, then from an unrelated directory. Check that it finds the configured bootstrap in order and respects the intended boundaries in both places. Do not give an agent with `KB_ACCESS: none` private vault access just to test this. Follow the printed procedure for the evidence file format; pass controller-observed evidence with `agent verify --config PATH --runtime NAME --evidence JSON_FILE`. Report separately any steps that require manual proof. Do not manufacture evidence or label `configured-unverified` as verified.

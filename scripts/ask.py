@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ASK local workspace setup, validation, bootstrap, and graph export."""
 import argparse
+import ast
 import json
 import os
 from pathlib import Path
@@ -68,14 +69,15 @@ def adapter(config, cfgpath, tool_path=None):
     cfgpath = Path(cfgpath).resolve()
     boot = config['bootstrap_files']
     read = config['access']['read']; write = config['access']['write']
-    local_cli = cfgpath.parent / 'system' / 'scripts' / 'ask.py'
+    local_cli = (cfgpath if cfgpath.is_dir() else cfgpath.parent) / 'system' / 'scripts' / 'ask.py'
     ensure_no_symlink_path(local_cli)
-    command = 'python3 %s validate --config %s' % (shlex.quote(str(tool_path or (local_cli if local_cli.is_file() else Path(__file__).resolve()))), shlex.quote(str(cfgpath)))
+    selector = cfgpath if cfgpath.is_dir() or cfgpath.is_file() else cfgpath.parent
+    command = 'python3 %s validate --config %s' % (shlex.quote(str(tool_path or (local_cli if local_cli.is_file() else Path(__file__).resolve()))), shlex.quote(str(selector)))
     lines = ['# Workspace agent bootstrap', '',
              'The owner configured this workspace adapter. Follow the notes in this order:']
     lines += ['%d. `%s`' % (i, vault / p) for i, p in enumerate(boot, 1)]
     lines += ['', 'Vault root: `%s`.' % vault,
-              'Configuration: `%s`.' % cfgpath,
+              'Workspace or legacy configuration: `%s`.' % selector,
               'Validate the vault with: `%s`' % command,
               '', 'Access paths below are relative to the vault root (`.` means the whole vault).',
               'Declared read paths: %s.' % (', '.join('`%s`' % x for x in read) or '(none)'),
@@ -83,6 +85,17 @@ def adapter(config, cfgpath, tool_path=None):
               '', '**These declarations are guidance only. They do not enforce runtime permissions. The owner must explicitly grant and constrain actual runtime filesystem permissions.**',
               'After the ordered bootstrap, use the knowledge map and linked notes for routing.']
     return '\n'.join(lines) + '\n'
+
+
+def workspace_adapter(vault_name):
+    return ('# ASK workspace agent bootstrap\n\n'
+            'Resolve paths relative to the directory containing this file.\n'
+            'Delegated workers with `KB_ACCESS: none` must skip knowledge-base access.\n'
+            'The knowledge base is `' + vault_name + '/` beside `system/`.\n'
+            'Read `date.md`, `INDEX.md`, `agents.md`, and `knowledge-map.md` in that order.\n'
+            'Then follow `knowledge-continuity-loop.md` before writing.\n'
+            'Use `system/scripts/ask.py` for validation and other ASK commands.\n'
+            'Persist this bootstrap in each installing runtime; configuration does not grant permissions.\n')
 
 
 def init(args):
@@ -94,6 +107,9 @@ def init(args):
     vault_rel = safe_rel(args.vault_name or 'Knowledge Base', 'vault name')
     if vault_rel.parts[0].casefold() in {'system', 'artifacts', '.ask', '.git'}:
         raise AskError('vault name overlaps a reserved ASK directory')
+    # Without a settings file the vault is discovered as one top-level folder.
+    if len(vault_rel.parts) != 1 or vault_rel.name.startswith('.'):
+        raise AskError('vault name must be a single visible top-level folder (nested vaults are unsupported)')
     if not ws.exists():
         # parent may be created, but reject symlink ancestry above was checked
         ws.mkdir(parents=True)
@@ -104,7 +120,8 @@ def init(args):
     if ws.exists(): check_inside_symlinks(ws, vault)
     if not inside(vault, ws) or vault.resolve() == ws.resolve():
         raise AskError('vault name must name a directory inside the workspace')
-    planned = [ws/'ask.json', ws/'note.schema.json', ws/'AGENTS.md', ws/'artifacts'/'README.md']
+    # No ask.json or root schema: settings follow from this layout (see gitops.read_config).
+    planned = [ws/'AGENTS.md', ws/'artifacts'/'README.md']
     template_root = dist / 'templates' / 'vault'
     manifest_path = dist / 'install-manifest.json'
     ensure_no_symlink_path(manifest_path)
@@ -127,7 +144,7 @@ def init(args):
         if not src.is_file():
             raise AskError('installation manifest file is missing: %s' % rel)
         assets.append((src, ws / 'system' / rel))
-    if Path('scripts/ask.py') not in rels or Path('schemas/note.schema.json') not in rels:
+    if Path('scripts/ask.py') not in rels or Path('scripts/note_schema.py') not in rels:
         raise AskError('installation manifest omits required scripts or schema')
     assets.append((manifest_path, ws / 'system/install-manifest.json'))
     files = [src for src, _ in assets if inside(src, template_root)]
@@ -144,11 +161,7 @@ def init(args):
             raise AskError('output already exists: %s' % p)
     for p in planned:
         p.parent.mkdir(parents=True, exist_ok=True)
-    cfg = {'version': 1, 'vault_root': vault_rel.as_posix(), 'schema_path': 'note.schema.json',
-           'bootstrap_files': DEFAULT_BOOTSTRAP, 'access': {'read': ['.'], 'write': []}}
-    payloads = [(ws/'ask.json', json.dumps(cfg, indent=2) + '\n'),
-                (ws/'note.schema.json', (dist/'schemas'/'note.schema.json').read_text(encoding='utf-8')),
-                (ws/'AGENTS.md', adapter(dict(cfg, vault=vault), ws/'ask.json', ws/'system/scripts/ask.py')),
+    payloads = [(ws/'AGENTS.md', workspace_adapter(vault_rel.as_posix())),
                 (ws/'artifacts'/'README.md', '# Artifacts\n\nStore working outputs and other functional files here, outside the knowledge base. Treat contents as private and review files before committing or sharing them.\n')]
     for src in files:
         dest = vault / src.relative_to(template_root)
@@ -170,10 +183,11 @@ def init(args):
 
 
 def load_config(path):
-    cp = Path(path).expanduser().absolute()
+    from asklib import gitops
+    cp = gitops.config_file(path)
     ensure_no_symlink_path(cp)
-    try: cfg=json.loads(cp.read_text(encoding='utf-8'))
-    except (OSError, ValueError) as e: raise AskError('cannot read config: %s' % e)
+    try: cfg=gitops.read_config(cp)
+    except (OSError, ValueError, gitops.GitError) as e: raise AskError('cannot read config: %s' % e)
     if not isinstance(cfg, dict) or type(cfg.get('version')) is not int or cfg.get('version') != 1:
         raise AskError('config version must be the integer 1')
     if not isinstance(cfg.get('vault_root'), str) or not cfg['vault_root']: raise AskError('vault_root must be a path')
@@ -213,8 +227,18 @@ def load_config(path):
 
 
 def validate_schema(path):
-    try: schema=json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, ValueError) as e: raise AskError('cannot read schema: %s'%e)
+    try:
+        if path.suffix == '.py':
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            values = [node.value for node in tree.body if isinstance(node, ast.Assign)
+                      and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+                      and node.targets[0].id == 'SCHEMA']
+            if len(values) != 1:
+                raise ValueError('Python rules must declare exactly one literal SCHEMA')
+            schema = ast.literal_eval(values[0])
+        else:
+            schema = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError, SyntaxError) as e: raise AskError('cannot read schema: %s'%e)
     notes={'$schema','title','description'}
     scalar_keys={'string':{'enum','minLength','format'},'boolean':{'enum'}}
     def check_scalar(s, name):
@@ -558,7 +582,7 @@ def run(args):
     if args.command=='init': init(args); return 0
     ctx=None if getattr(args,'staged',False) else load_config(args.config)
     if args.command=='bootstrap':
-        text=adapter({'vault':ctx['vault'],'bootstrap_files':ctx['bootstrap_files'],'access':ctx['access']},ctx['config_path'])
+        text=adapter({'vault':ctx['vault'],'bootstrap_files':ctx['bootstrap_files'],'access':ctx['access']},ctx['config_path'] if ctx['config_path'].exists() else ctx['config_path'].parent)
         if args.output: write_new(output_guard(args.output,ctx),text)
         else: sys.stdout.write(text)
         return 0

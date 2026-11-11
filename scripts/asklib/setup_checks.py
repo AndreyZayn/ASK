@@ -12,6 +12,7 @@ import shlex
 import subprocess
 from urllib.parse import quote
 
+from . import gitops
 from .runtime import MANAGED_RUNTIMES, valid_proof
 
 
@@ -42,7 +43,8 @@ def _covers(read_paths, note):
 
 def _config_check(config_path):
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config_path = gitops.config_file(config_path)
+        config = gitops.read_config(config_path)
         if not isinstance(config, dict):
             raise ValueError("configuration is not an object")
         vault_name = _relative_path(config.get("vault_root"))
@@ -72,7 +74,7 @@ def _config_check(config_path):
         ):
             raise ValueError("bootstrap notes are missing")
         return config, _check(True, "ready", "Configuration and bootstrap are present")
-    except (OSError, UnicodeError, ValueError, TypeError):
+    except (OSError, UnicodeError, ValueError, TypeError, gitops.GitError):
         # Do not expose configuration contents or exception text (paths may be private).
         return {}, _check(False, "invalid", "Configuration or bootstrap is incomplete")
 
@@ -189,7 +191,7 @@ def _hook_check(config_path):
             pos = tokens.index("--config")
             if pos + 1 >= len(tokens):
                 continue
-            if (Path(tokens[pos + 1]).expanduser().absolute() == config_path.absolute()
+            if (gitops.config_file(tokens[pos + 1]) == gitops.config_file(config_path)
                     and any(Path(t).name == "ask.py" for t in tokens[:pos])
                     and "validate" in tokens[:pos] and "--staged" in tokens):
                 return _check(True, "installed", "Executable hook uses this configuration")

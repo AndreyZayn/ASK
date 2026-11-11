@@ -223,7 +223,7 @@ def _run_locked(ws, validator, quiet_seconds):
     try:
         st = gitops.status(ws)
         vault, _ = gitops._load_vault(ws)
-        cfg = json.loads((ws / "ask.json").read_text(encoding="utf-8"))
+        cfg = gitops.read_config(ws)
         writable = cfg.get("access", {}).get("write", [])
         if not isinstance(writable, list) or not all(isinstance(p, str) for p in writable):
             raise ValueError("invalid access.write")

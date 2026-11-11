@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
+from . import gitops
+
 __all__ = [
     'RuntimeError',
     'connect',
@@ -59,12 +61,10 @@ def _reject_symlinks(path: Path, label: str) -> Path:
 
 
 def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
-    cp = _reject_symlinks(Path(config_path), 'config')
-    if not cp.is_file():
-        raise RuntimeError('config does not exist: %s' % cp)
+    cp = _reject_symlinks(gitops.config_file(config_path), 'config')
     try:
-        cfg = json.loads(cp.read_text(encoding='utf-8'))
-    except (OSError, ValueError) as e:
+        cfg = gitops.read_config(cp)
+    except (OSError, ValueError, gitops.GitError) as e:
         raise RuntimeError('cannot read config: %s' % e)
     if not isinstance(cfg, dict):
         raise RuntimeError('config must be a JSON object')
@@ -97,12 +97,16 @@ def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
         if not p.is_file():
             raise RuntimeError('configured bootstrap note missing: %s' % name)
     workspace = cp.parent
+    # Without ask.json, commands name the workspace itself (`--config WORKSPACE`).
+    # The derived backup repository does not affect the bootstrap, so it is not hashed.
+    raw = cp.read_bytes() if cp.is_file() else json.dumps(
+        {k: v for k, v in cfg.items() if k != 'backup'}, sort_keys=True).encode()
     return {
-        'config_path': cp,
+        'config_path': cp if cp.is_file() else workspace,
         'workspace': workspace,
         'vault': vault,
         'bootstrap_files': list(BOOTSTRAP_ORDER),
-        'config_digest': hashlib.sha256(cp.read_bytes()).hexdigest(),
+        'config_digest': hashlib.sha256(raw).hexdigest(),
     }
 
 

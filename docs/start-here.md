@@ -18,12 +18,12 @@ After installation, the owner works through ordinary conversation. During author
 
 Give the new local agent this prompt, replacing the workspace path:
 
-> Connect yourself to my existing ASK workspace at WORKSPACE_PATH using its installed tools in WORKSPACE_PATH/system/scripts/. Resolve vault_root from its ask.json, then read date.md, INDEX.md, agents.md, and knowledge-map.md under that vault in order. Follow WORKSPACE_PATH/system/docs/runtime.md to persist this bootstrap in your actual runtime, preserving existing instructions. Follow WORKSPACE_PATH/system/docs/onboarding.md to reconcile your local identity and agreed scope in my existing roster, and inventory all currently exposed skills when feasible and document scoped integrations and runtime/surface limits in the existing capability catalogs. Preserve other agents and custom notes; do not install anything or inspect credentials to build an inventory. Use the vault's continuity process for authorized edits. Verify fresh sessions inside and outside the workspace. Reuse the existing vault and backup; do not create another vault. Report any manual or unverified step.
+> Connect yourself to my existing ASK workspace at WORKSPACE_PATH using its installed tools in WORKSPACE_PATH/system/scripts/. Locate the knowledge base beside system (by default `Knowledge Base/`), then read date.md, INDEX.md, agents.md, and knowledge-map.md under that vault in order. Follow WORKSPACE_PATH/system/docs/runtime.md to persist this bootstrap in your actual runtime, preserving existing instructions. Follow WORKSPACE_PATH/system/docs/onboarding.md to reconcile your local identity and agreed scope in my existing roster, and inventory all currently exposed skills when feasible and document scoped integrations and runtime/surface limits in the existing capability catalogs. Preserve other agents and custom notes; do not install anything or inspect credentials to build an inventory. Use the vault's continuity process for authorized edits. Verify fresh sessions inside and outside the workspace. Reuse the existing vault and backup; do not create another vault. Report any manual or unverified step.
 
 From the ASK workspace, the connection command is:
 
 ```sh
-python3 system/scripts/ask.py agent connect --config /path/to/your-workspace/ask.json --runtime claude
+python3 system/scripts/ask.py agent connect --config /path/to/your-workspace --runtime claude
 ```
 
 Use `codex`, `cursor`, or the other runtime's name as appropriate. Follow with the status and verification commands in [runtime.md](runtime.md). Each runtime needs its own persistent registration and proof. This does not grant a remote or browser-only agent access to local files; the owner must provide a supported connection first.

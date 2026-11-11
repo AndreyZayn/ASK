@@ -13,12 +13,12 @@ Authenticate GitHub and confirm the remote is private. Clone the **private** rep
 ```sh
 git clone git@github.com:OWNER/NAME.git /path/to/your-workspace
 python3 /path/to/your-workspace/system/scripts/ask.py setup --workspace /path/to/your-workspace --runtime codex --repository OWNER/NAME
-python3 /path/to/your-workspace/system/scripts/ask.py validate --config /path/to/your-workspace/ask.json
+python3 /path/to/your-workspace/system/scripts/ask.py validate --config /path/to/your-workspace
 ```
 
 Preserve existing hooks and unrelated instructions. Re-test a new runtime session inside the workspace and from an unrelated directory; see [runtime proof](runtime.md). If authentication, privacy, conflicts, or permissions block recovery, stop and report the state instead of resetting or overwriting local edits. Derived graph JSON can be regenerated from notes.
 
-Older backups made before ASK included installed tools may not have `system/scripts/ask.py`. For those backups, obtain the public checkout separately and run its `python3 scripts/ask.py setup --workspace /path/to/your-workspace --runtime codex --repository OWNER/NAME` and `validate --config /path/to/your-workspace/ask.json` from that checkout. This rebinds the existing installation without overwriting notes or silently migrating files; review the [upgrade guidance](upgrades.md) before adding tools to it.
+Older backups made before ASK included installed tools may not have `system/scripts/ask.py`. For those backups, obtain the public checkout separately and run its `python3 scripts/ask.py setup --workspace /path/to/your-workspace --runtime codex --repository OWNER/NAME` and `validate --config /path/to/your-workspace` from that checkout. This rebinds the existing installation without overwriting notes or silently migrating files; review the [upgrade guidance](upgrades.md) before adding tools to it.
 
 ## Uninstall
 
