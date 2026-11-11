@@ -92,7 +92,7 @@ def init(args):
     if inside(ws, dist):
         raise AskError('workspace must be outside the distribution')
     vault_rel = safe_rel(args.vault_name or 'Knowledge Base', 'vault name')
-    if vault_rel.parts[0].casefold() in {'system', 'artifacts', 'backups', 'staging', '.ask', '.git'}:
+    if vault_rel.parts[0].casefold() in {'system', 'artifacts', '.ask', '.git'}:
         raise AskError('vault name overlaps a reserved ASK directory')
     if not ws.exists():
         # parent may be created, but reject symlink ancestry above was checked
@@ -104,7 +104,7 @@ def init(args):
     if ws.exists(): check_inside_symlinks(ws, vault)
     if not inside(vault, ws) or vault.resolve() == ws.resolve():
         raise AskError('vault name must name a directory inside the workspace')
-    planned = [ws/'ask.json', ws/'note.schema.json', ws/'AGENTS.md', ws/'artifacts'/'README.md', ws/'backups'/'README.md', ws/'staging'/'README.md']
+    planned = [ws/'ask.json', ws/'note.schema.json', ws/'AGENTS.md', ws/'artifacts'/'README.md']
     template_root = dist / 'templates' / 'vault'
     manifest_path = dist / 'install-manifest.json'
     ensure_no_symlink_path(manifest_path)
@@ -149,9 +149,7 @@ def init(args):
     payloads = [(ws/'ask.json', json.dumps(cfg, indent=2) + '\n'),
                 (ws/'note.schema.json', (dist/'schemas'/'note.schema.json').read_text(encoding='utf-8')),
                 (ws/'AGENTS.md', adapter(dict(cfg, vault=vault), ws/'ask.json', ws/'system/scripts/ask.py')),
-                (ws/'artifacts'/'README.md', '# Artifacts\n\nStore working outputs and other functional files here, outside the knowledge base. Treat contents as private and review files before committing or sharing them.\n'),
-                (ws/'backups'/'README.md', '# Local backups\n\nStore owner-created local recovery files here. Contents are ignored by Git; this folder does not create backups automatically.\n'),
-                (ws/'staging'/'README.md', '# Staging\n\nUse this folder for temporary working files. Contents are ignored by Git.\n')]
+                (ws/'artifacts'/'README.md', '# Artifacts\n\nStore working outputs and other functional files here, outside the knowledge base. Treat contents as private and review files before committing or sharing them.\n')]
     for src in files:
         dest = vault / src.relative_to(template_root)
         payloads.append((dest, src.read_text(encoding='utf-8').replace('{{DATE}}', date.today().isoformat())))
