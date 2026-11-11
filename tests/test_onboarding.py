@@ -174,8 +174,26 @@ class OnboardingTests(unittest.TestCase):
         missing=self.vault/'Agents/capabilities/skills/INDEX.md';missing.unlink()
         before=self.hashes();result=self.propose()
         self.assertEqual(result['catalogs']['skills']['state'],'missing')
+        self.assertNotIn('Agents/capabilities/skills/INDEX.md',[n['path'] for n in result['notes']])
+        self.assertEqual(result['unresolved'][0]['catalog_state'],'missing')
+        self.assertIn('review-example',result['unresolved'][0]['row'])
+        self.assertEqual(len(result['notes']),2)
         self.assertEqual(before,self.hashes())
         self.assertFalse(missing.exists())
+
+    def test_custom_catalog_requires_mapping_without_losing_observations(self):
+        standard=self.vault/'Agents/capabilities/skills/INDEX.md'
+        custom=self.vault/'Agents/capabilities/owner-skills.md'
+        standard.rename(custom)
+        before=self.hashes();result=self.propose()
+        self.assertNotIn(str(custom),json.dumps(result))
+        self.assertEqual(len(result['notes']),2)
+        unresolved=result['unresolved'][0]
+        self.assertFalse(unresolved['applicable'])
+        self.assertEqual(unresolved['action'],'manual-mapping-required')
+        self.assertNotIn('path',unresolved)
+        self.assertIn('review-example',unresolved['row'])
+        self.assertEqual(before,self.hashes())
 
     def test_symlinked_profile_or_catalog_is_rejected_without_reading_target(self):
         self.profile.write_text(json.dumps(self.data()))
@@ -188,9 +206,17 @@ class OnboardingTests(unittest.TestCase):
         self.assertNotIn(outside.read_text(),r.stdout+r.stderr)
 
     def test_scope_restriction_does_not_probe_catalogs(self):
+        # An unreadable catalog path must not even trigger the symlink probe.
+        roster=self.vault/'Agents/roster.md';roster.unlink()
+        outside=self.root/'unread-catalog.md';outside.write_text('Synthetic private fixture')
+        roster.symlink_to(outside)
         cfg=json.loads(self.config.read_text());cfg['access']['read']=cfg['bootstrap_files'];self.config.write_text(json.dumps(cfg))
         result=self.propose()
         self.assertEqual(result['catalogs']['roster']['state'],'not-in-declared-read-scope')
+        self.assertEqual(result['notes'],[])
+        self.assertNotIn('Synthetic private fixture',json.dumps(result))
+        self.assertEqual(len(result['unresolved']),3)
+        self.assertTrue(all(n['catalog_state']=='not-in-declared-read-scope' for n in result['unresolved']))
         self.assertFalse(result['applied'])
 
     def test_invalid_manifest_does_not_echo_sensitive_values_or_change_files(self):

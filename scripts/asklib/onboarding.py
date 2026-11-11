@@ -161,5 +161,19 @@ def report(api, config_path, runtime_name, profile_path=None):
             'row': _row([capability['name'], runtime_name, agent['surface'], agent['id'], capability['purpose'],
                          capability['availability'], capability['source'], capability['evidence'], capability['limits'], data['observed_on']]),
         })
-    result['notes'] = notes
+    available = []
+    unresolved = []
+    by_path = {item['path']: (name, item['state']) for name, item in result['catalogs'].items()}
+    for note in notes:
+        catalog, state = by_path[note['path']]
+        if state == 'present':
+            available.append(note)
+        else:
+            # Keep supplied facts without suggesting a destination we could not read.
+            pending = {key: value for key, value in note.items() if key != 'path'}
+            pending.update(catalog=catalog, catalog_state=state, applicable=False,
+                           action='manual-mapping-required')
+            unresolved.append(pending)
+    result['notes'] = available
+    result['unresolved'] = unresolved
     return result
