@@ -1,6 +1,6 @@
 # Upgrading ASK
 
-Update the **public** ASK checkout separately from the private workspace. Compare the installed schema and each template with its new distribution version. Apply only reviewed differences; upgrades must not automatically overwrite customized private notes, frontmatter, indexes, rules, or configuration.
+Update a **public** ASK checkout separately, then compare its portable tools with the installed `ASK/system/` files and review each proposed software change before applying it. Existing installations are not automatically converted or overwritten. Compare the installed schema and each template with its new distribution version. Apply only reviewed differences; upgrades must not automatically overwrite customized private notes, frontmatter, indexes, rules, or configuration.
 
 Treat `date.md`, `goals.md`, root `INDEX.md`, Projects, People, Personal, Tasks, Memory, and ordinary `Agents/capabilities/` content as routine editable notes when authorized. `agents.md`, `knowledge-map.md`, `knowledge-continuity-loop.md`, schema and tag taxonomy, `Agents/rules/**`, the roster, and ontology are protected and need explicit owner direction for changes. `date.md` and `INDEX.md` are **not** protected simply because they are bootstrap notes. Changing bootstrap order or access declarations also needs owner direction.
 

@@ -11,7 +11,7 @@ Choose a stable, non-secret local agent ID. A runtime is the host, a model is a 
 The public tools offer a read-only plan:
 
 ```sh
-python3 scripts/ask.py agent onboarding --config /path/to/workspace/ask.json --runtime codex
+python3 /path/to/your-workspace/system/scripts/ask.py agent onboarding --config /path/to/your-workspace/ask.json --runtime codex
 ```
 
 It resolves the configured vault and reports whether standard catalog paths are present, missing, or outside declared read scope. It reads no catalog bodies, runtime configuration, or provider data and writes nothing. A missing catalog is a prompt to follow the owner's existing index or request the missing scope; it is not permission to recreate the standard layout.
@@ -67,7 +67,7 @@ The installing agent can place a small sanitized observation profile in a tempor
 ```
 
 ```sh
-python3 scripts/ask.py agent onboarding --config /path/to/workspace/ask.json --runtime generic --profile /path/to/sanitized-observations.json
+python3 /path/to/your-workspace/system/scripts/ask.py agent onboarding --config /path/to/your-workspace/ask.json --runtime generic --profile /path/to/sanitized-observations.json
 ```
 
 Replace the example ID, runtime, date, scope, and observations with actual agreed facts. Keep `--runtime` and the profile's runtime identifier equal. IDs use lowercase letters, digits, and hyphens. Roles are `controller`, `worker`, or `assistant`; capability kinds are `skill`, `integration`, `plugin`, or `runtime`. All text fields are single-line and bounded to 1000 characters; the profile permits up to 200 capability entries and 256000 bytes. For more than 200 entries, use bounded profiles of at most 200 entries, label coverage with batch number and total/remaining counts, and merge the reviewed batches into the same observed catalog or dated snapshot without duplicating the roster/runtime records. Never silently truncate a discovery list. If the session cannot expose the full list, state partial coverage, what was unavailable, and the remaining action; do not read secrets to fill the gap. An empty capability array is valid when its coverage and missing observations are explained. Unknown fields and duplicate kind/name pairs are rejected without echoing their values. Symlinked profile/catalog paths are refused.
@@ -89,12 +89,12 @@ The installing agent reviews the existing notes and then performs authorized edi
 For example, after reviewing the actual paths, use the normal CLI sequence (replace the placeholders; list only files you edited):
 
 ```sh
-python3 scripts/ask.py write begin --config /path/to/workspace/ask.json --actor LOCAL_AGENT_ID
+python3 /path/to/your-workspace/system/scripts/ask.py write begin --config /path/to/your-workspace/ask.json --actor LOCAL_AGENT_ID
 # Save the returned token. Apply the reviewed note edits and required date/log upkeep.
-python3 scripts/ask.py validate --config /path/to/workspace/ask.json --json
-python3 scripts/ask.py checkpoint --config /path/to/workspace/ask.json --files "Knowledge Base/Agents/roster.md" "Knowledge Base/Agents/capabilities/runtimes/INDEX.md" "Knowledge Base/Agents/capabilities/skills/INDEX.md" "Knowledge Base/Memory/Logs/YYYY-MM.md" --message "Register agent and observed capabilities" --owner-approved
-python3 scripts/ask.py write end --config /path/to/workspace/ask.json --token=RETURNED_TOKEN
-python3 scripts/ask.py sync --config /path/to/workspace/ask.json
+python3 /path/to/your-workspace/system/scripts/ask.py validate --config /path/to/your-workspace/ask.json --json
+python3 /path/to/your-workspace/system/scripts/ask.py checkpoint --config /path/to/your-workspace/ask.json --files "Knowledge Base/Agents/roster.md" "Knowledge Base/Agents/capabilities/runtimes/INDEX.md" "Knowledge Base/Agents/capabilities/skills/INDEX.md" "Knowledge Base/Memory/Logs/YYYY-MM.md" --message "Register agent and observed capabilities" --owner-approved
+python3 /path/to/your-workspace/system/scripts/ask.py write end --config /path/to/your-workspace/ask.json --token=RETURNED_TOKEN
+python3 /path/to/your-workspace/system/scripts/ask.py sync --config /path/to/your-workspace/ask.json
 ```
 
 Keep the `--token=` form because an opaque token can begin with a hyphen. Paths passed to `checkpoint` are workspace-relative; substitute the configured vault name and legacy/custom catalog paths. Include `date.md` only if it needed an update. A local commit without a configured remote returns exit 2 with `backup_pending`; it does not undo the commit. End the write session after the authorized work, report backup pending, and follow the installation backup setup before claiming completion.

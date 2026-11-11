@@ -180,7 +180,7 @@ class OnboardingTests(unittest.TestCase):
         self.git('config','commit.gpgsign','false')
         baseline=setup['initial_checkpoint_files']
         if legacy:
-            baseline=[re.sub(r'Agents/capabilities/(skills|integrations|plugins|runtimes)/INDEX.md',r'Agents/capabilities/\1.md',path) for path in baseline]
+            baseline=[re.sub(r'^(Private Notes/Agents/capabilities/)(skills|integrations|plugins|runtimes)/INDEX.md',r'\1\2.md',path) for path in baseline]
         initial=json.loads(self.cli('checkpoint','--config',self.config,'--files',*baseline,'--message','Synthetic generated baseline','--owner-approved',expected=2).stdout)
         self.assertTrue(initial['committed']);self.assertTrue(initial['backup_pending'])
         # A valid unrelated change remains outside both scoped checkpoints.

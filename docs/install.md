@@ -1,6 +1,6 @@
 # Install ASK (macOS)
 
-ASK keeps the public program and your private notes in separate folders. Use a new private workspace, not an existing Obsidian vault. Install Python 3.9+, Git, and GitHub CLI (`gh`); authenticate `gh` to create or use a **private** GitHub repository. Obsidian is optional.
+ASK installs a complete private workspace: `Knowledge Base/`, `system/` (including the installed scripts), and `artifacts/` are siblings within the chosen ASK folder. The public source checkout is only an installer and remains separate from private data. Use a new private workspace, not an existing Obsidian vault. Install Python 3.9+, Git, and GitHub CLI (`gh`); authenticate `gh` to create or use a **private** GitHub repository. Obsidian is optional.
 
 ```sh
 git clone https://github.com/AndreyZayn/ASK.git ask-public
@@ -10,9 +10,11 @@ python3 scripts/ask.py setup --workspace /path/to/your-workspace --repository OW
 
 Replace `OWNER/NAME` with your intended private repository. For an existing private repository, omit `--create-repository`. To start without a repository, omit both repository flags: setup leaves a usable local workspace in `setup-pending` state and exits 2; remote backup is not complete. Do not turn an authentication or privacy check failure into a success claim.
 
-Choose `--runtime claude`, `codex`, `amp`, `droid`, `antigravity`, or a manual runtime such as `cursor` or `generic` for the agent you actually use. You can add `--read-only` to avoid content-writer declarations or `--backup scheduled` for optional scheduled backup. Setup creates `ask.json`, `note.schema.json`, a workspace `AGENTS.md`, and the `Knowledge Base/` notes. Its runtime configuration is **configured-unverified** until you test a new session. Every agent installing ASK must proactively persist the four-note bootstrap in its actual runtime, preserve foreign instructions, and report any registration it cannot do automatically for manual completion. See [runtime verification](runtime.md).
+Choose `--runtime claude`, `codex`, `amp`, `droid`, `antigravity`, or a manual runtime such as `cursor` or `generic` for the agent you actually use. You can add `--read-only` to avoid content-writer declarations or `--backup scheduled` for optional scheduled backup. Setup creates `ask.json`, `note.schema.json`, a workspace `AGENTS.md`, the `Knowledge Base/` notes, `system/` with its portable scripts and guides, and `artifacts/` for private working outputs. After setup, run `python3 /path/to/your-workspace/system/scripts/ask.py` for normal ASK commands; the original checkout is not required. Its runtime configuration is **configured-unverified** until you test a new session. Every agent installing ASK must proactively persist the four-note bootstrap in its actual runtime, preserve foreign instructions, and report any registration it cannot do automatically for manual completion. See [runtime verification](runtime.md).
 
 To view your notes, open Obsidian and choose **Open folder as vault**, then select `/path/to/your-workspace/Knowledge Base`, not the public checkout or the workspace root. No ASK plugin is required. The notes also work in a text editor.
+
+Use `artifacts/` for private working outputs that do not belong in the Markdown graph. To include an owner-approved artifact in the private Git backup, review it and checkpoint its individual path, for example `python3 /path/to/your-workspace/system/scripts/ask.py checkpoint --config /path/to/your-workspace/ask.json --files artifacts/example.txt --message "Save working artifact" --owner-approved`. Scheduled backup handles eligible vault notes only; it does not automatically checkpoint artifacts or system files. Never put credentials in a checkpoint. A local commit remains backup pending until it is pushed to the verified private remote.
 
 For an existing vault, do not run setup into it or overwrite its notes. Review a separate ASK workspace and merge only the notes and settings you choose. For remote work, use an owner-provided authenticated connection to the machine holding the private workspace; setup does not grant remote filesystem access or configure your network.
 
@@ -45,7 +47,7 @@ python3 scripts/ask.py setup --workspace /path/to/your-workspace > /path/to/init
 
 After configuring the repository-local identity, review `initial_checkpoint_files` in that trusted output. It enumerates only files the initializer created, including configuration and the generated vault, with workspace-relative paths. It excludes `.ask`, unrelated files subsequently added anywhere in the workspace/vault, and other staged work. Review current contents of those exact files before committing. Do not replace this list with `git add .`, a directory glob, or a scan of untracked files.
 
-From the public checkout, checkpoint the reviewed list:
+Using the installed tools, checkpoint the reviewed list:
 
 ```sh
 python3 - /path/to/initial-setup.json <<'PY'
@@ -58,7 +60,7 @@ files = report.get('initial_checkpoint_files')
 if not files:
     raise SystemExit('Missing initial manifest; stop and review the existing installation manually.')
 raise SystemExit(subprocess.call([
-    sys.executable, 'scripts/ask.py', 'checkpoint',
+    sys.executable, str(Path(report['workspace']) / 'system/scripts/ask.py'), 'checkpoint',
     '--config', str(Path(report['workspace']) / 'ask.json'),
     '--files', *files, '--message', 'Initialize generated ASK baseline', '--owner-approved',
 ]))

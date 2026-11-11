@@ -23,7 +23,7 @@ During an owner-requested installation or connection, document the installing ag
 
 Record runtime and surface separately: exposure in a desktop session does not prove CLI availability. Distinguish `exposed`, `configured-unverified`, `verified`, `unavailable`, and `unknown` in record bodies, with observation date, source, evidence, and limits. A tool name is not proof of authentication. Empty discovery means none observed within the stated coverage, not none installed.
 
-Reuse shared records and merge new runtime/surface evidence rather than duplicating inventories. Preserve another agent's observations and valid prior evidence. These notes are descriptive; live permissions and current tools remain authoritative. The public distribution's `docs/onboarding.md` describes reviewed row proposals and the continuity/checkpoint handoff; `setup` and `doctor` do not fill or certify these catalogs.
+Reuse shared records and merge new runtime/surface evidence rather than duplicating inventories. Preserve another agent's observations and valid prior evidence. These notes are descriptive; live permissions and current tools remain authoritative. The installed `system/docs/onboarding.md` describes reviewed row proposals and the continuity/checkpoint handoff; `setup` and `doctor` do not fill or certify these catalogs.
 
 ## Structure and record types
 

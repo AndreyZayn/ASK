@@ -194,14 +194,14 @@ class ValidationV1Tests(unittest.TestCase):
         for text in ((self.ws / 'AGENTS.md').read_text(), cli('bootstrap', '--config', self.cfg).stdout):
             self.assertIn(str(self.vault), text)
             self.assertIn(str(self.vault / 'INDEX.md'), text)
-            cmd = 'python3 %s validate --config %s' % (shlex.quote(str(ASK)), shlex.quote(str(self.cfg)))
+            cmd = 'python3 %s validate --config %s' % (shlex.quote(str(self.ws / 'system/scripts/ask.py')), shlex.quote(str(self.cfg)))
             self.assertIn(cmd, text)
             self.assertIn('relative to the vault root', text)
         (self.ws / 'nested').mkdir()
         r = cli('bootstrap', '--config', self.ws / 'nested' / '..' / 'ask.json')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn(str(self.vault / 'INDEX.md'), r.stdout)
-        self.assertIn('python3 %s validate --config %s' % (shlex.quote(str(ASK)), shlex.quote(str(self.cfg))), r.stdout)
+        self.assertIn(cmd, r.stdout)
         self.assertNotIn('/nested/../', r.stdout)
 
     # Init

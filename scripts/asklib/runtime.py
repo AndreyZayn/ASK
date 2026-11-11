@@ -106,7 +106,11 @@ def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
     }
 
 
-def _dist_ask() -> Path:
+def _dist_ask(ctx=None) -> Path:
+    if ctx:
+        local = _reject_symlinks(Path(ctx['workspace']) / 'system' / 'scripts' / 'ask.py', 'installed ASK CLI')
+        if local.is_file():
+            return local
     return Path(__file__).resolve().parents[2] / 'scripts' / 'ask.py'
 
 
@@ -180,7 +184,7 @@ def _build_block(ctx: Dict[str, Any]) -> str:
     ws = str(ctx['workspace'])
     cfg = str(ctx['config_path'])
     vault = str(ctx['vault'])
-    dist = str(_dist_ask())
+    dist = str(_dist_ask(ctx))
     start, end = _markers(ctx['workspace'])
     cmd = '%s %s validate --config %s --json' % (
         shlex.quote('python3'), shlex.quote(dist), shlex.quote(cfg))
@@ -272,7 +276,7 @@ def _atomic_write_file(path: Path, content: str) -> None:
 
 
 def _manual_instructions(ctx: Dict[str, Any], runtime_key: str) -> str:
-    dist = str(_dist_ask())
+    dist = str(_dist_ask(ctx))
     return (
         'Manual setup for runtime "%s" (no runtime instructions were written).\n'
         '1. Open this workspace in the agent runtime: %s\n'
@@ -484,7 +488,7 @@ def inspect(config_path: Union[str, Path], runtime: str,
 def verification_prompt(config_path: Union[str, Path]) -> str:
     """Return controller instructions for proving enrollment in a fresh session."""
     ctx = _load_config(config_path)
-    dist = str(_dist_ask())
+    dist = str(_dist_ask(ctx))
     scratch = 'Tasks/_ask_verification_sentinel.md'
     cmd = '%s %s validate --config %s --json' % (
         shlex.quote('python3'), shlex.quote(dist),

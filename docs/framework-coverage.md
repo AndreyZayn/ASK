@@ -10,7 +10,7 @@ Agentic System Knowledge (ASK) installs a reusable structure and working validat
 | Continuity | Durable capture/exclusion and placement matrix, provenance, nearest-index linking, date/log upkeep, explicit closeout outcomes | No automatic copying from conversations or private sources |
 | Completion | Task owner, outcome, target, authority, repair, blocker and handoff contract | No completion prototype, task-board service, or agent lifecycle hooks |
 | Validation | Local schema and path profiles, editable state/tag vocabulary, typed relations, ordinary wikilinks/Markdown links, attachments, title uniqueness, topology and dated records | Whole-snapshot validation; no incremental legacy-debt baseline, heading/block-anchor or shortcut-reference checks |
-| Git hooks | Existing staged-snapshot pre-commit validator with foreign-hook, symlink, and hardlink refusal | Requires installed Python and the public checkout at its configured path; moving it needs reinstallation |
+| Git hooks | Existing staged-snapshot pre-commit validator with foreign-hook, symlink, and hardlink refusal | Requires installed Python and the ASK workspace at its configured path; moving it needs reinstallation |
 | Runtime enrollment | Managed local blocks for Codex, Claude Code, Amp, Droid, Antigravity; explicit manual routes for other surfaces | Fresh sessions and remote/provider connections must be observed by the installer; no claim of universal verified runtime parity |
 | Upgrades | Existing config and templates remain owner-owned; validator accepts schemas without profiles | Review and apply changes manually; setup never replaces a customized vault |
 

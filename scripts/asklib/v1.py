@@ -46,6 +46,12 @@ def _assert_valid(api, cp, staged=False):
     return report
 
 
+def _workspace_cli(api, ws):
+    local = ws / 'system' / 'scripts' / 'ask.py'
+    api.ensure_no_symlink_path(local)
+    return local if local.is_file() else Path(api.__file__).resolve()
+
+
 def _install_hook(api, cp):
     ws = cp.parent
     hooks = ws / '.ask' / 'hooks'
@@ -61,7 +67,7 @@ def _install_hook(api, cp):
     api.ensure_no_symlink_path(hook)
     if hook.exists() and hook.stat().st_nlink != 1:
         raise api.AskError('managed hook path is a hardlink; original files preserved')
-    command = '%s %s validate --config %s --staged --json' % tuple(shlex.quote(str(x)) for x in (sys.executable, Path(api.__file__).resolve(), cp))
+    command = '%s %s validate --config %s --staged --json' % tuple(shlex.quote(str(x)) for x in (sys.executable, _workspace_cli(api, ws), cp))
     content = '#!/bin/sh\n# ASK managed staged-snapshot validator\nexec '+command+'\n'
     if hook.exists() and '# ASK managed staged-snapshot validator' not in hook.read_text():
         raise api.AskError('foreign ASK hook path preserved')
@@ -123,9 +129,9 @@ def _setup(api, args):
             'Then route and follow the knowledge continuity loop before writing.\n'
             'Delegated workers with `KB_ACCESS: none` must skip vault access.\n'
             'Installation must also persist this bootstrap in the agent runtime; this workspace file alone does not prove enrollment.\n'
-            'Use the separately installed ASK CLI and its agent connect/verify commands; preserve existing runtime instructions.\n'
+            'Use `system/scripts/ask.py` in this workspace for ASK commands; preserve existing runtime instructions.\n'
             'Configuration declarations do not grant runtime permissions.\n', encoding='utf-8')
-        (ws/'.gitignore').write_text('.ask/\n.DS_Store\n**/.obsidian/workspace*.json\n**/.obsidian/cache/\n.env\n.env.*\n*.pem\n*.key\n__pycache__/\n', encoding='utf-8')
+        (ws/'.gitignore').write_text('.ask/\n.DS_Store\n**/.obsidian/workspace*.json\n**/.obsidian/cache/\n.env\n.env.*\n*.pem\n*.key\n__pycache__/\n/backups/*\n!/backups/README.md\n/staging/*\n!/staging/README.md\n', encoding='utf-8')
     cp, ctx = _context(api, cp)
     report = _assert_valid(api, cp)
     gitops.initialize(ws)
@@ -169,7 +175,7 @@ def _setup(api, args):
         if not args.repository:
             result['pending'].append('Scheduled backup needs a verified private GitHub repository first.')
         else:
-            result['schedule'] = backup.enable(ws, Path(api.__file__).resolve(), cp)
+            result['schedule'] = backup.enable(ws, _workspace_cli(api, ws), cp)
     if result.get('runtime',{}).get('state') != 'verified':
         result['pending'].append('Runtime bootstrap verification remains pending.')
     result['readiness'] = _doctor(api, cp)['readiness']
@@ -272,7 +278,8 @@ def dispatch(api, argv):
             result=gitops.checkpoint(ws,args.files,args.message,lambda: _assert_valid(api,cp,True),owner_approved=args.owner_approved)
         elif args.command=='write':
             result=gitops.begin_write(ws,args.actor) if args.action=='begin' else gitops.end_write(ws,args.token)
-        elif args.action=='enable': result=backup.enable(ws,Path(api.__file__).resolve(),cp)
+        elif args.action=='enable':
+            result=backup.enable(ws,_workspace_cli(api,ws),cp)
         elif args.action=='disable': result=backup.disable(ws)
         elif args.action=='run': result=backup.run(ws,lambda: _assert_valid(api,cp,True))
         else:
