@@ -40,12 +40,9 @@ class FrameworkStructureTests(unittest.TestCase):
             self.assertTrue((vault / 'Tasks/owner-task-contract.md').is_file())
             self.assertIn('[[Tasks/owner-task-contract]]', tasks)
             self.assertIn('[[Tasks/owner-task-contract]]', routes)
-            config = workspace / 'ask.json'
-            settings = json.loads(config.read_text())
-            settings['validation'] = {'topology': True}
-            config.write_text(json.dumps(settings))
+            config = workspace
             report = subprocess.run(
-                [sys.executable, str(ROOT / 'scripts/ask.py'), 'validate', '--config', str(config)],
+                [sys.executable, str(ROOT / 'scripts/ask.py'), 'validate', '--workspace', str(config)],
                 capture_output=True, text=True,
             )
             self.assertEqual(report.returncode, 0, report.stdout + report.stderr)

@@ -9,9 +9,9 @@ import shlex
 import subprocess
 import sys
 
-from . import backup, gitops, runtime, validation, setup_checks, onboarding
+from . import configuration, backup, gitops, runtime, validation, setup_checks, onboarding
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 COMMANDS = {'setup', 'doctor', 'agent', 'checkpoint', 'sync', 'write', 'backup'}
 
 
@@ -23,18 +23,14 @@ def _json(path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
-def _save(path, value):
-    path.write_text(json.dumps(value, indent=2, sort_keys=True)+'\n', encoding='utf-8')
-
-
 def _git(ws, *args):
     return subprocess.run(['git', *args], cwd=str(ws), capture_output=True, text=True, timeout=30)
 
 
 def _context(api, config):
-    cp = Path(config).expanduser().absolute()
+    cp = configuration.reference(config_path=config)
     ctx = api.load_config(cp)
-    if ctx['vault'].resolve() == cp.parent.resolve() or not api.inside(ctx['vault'], cp.parent):
+    if ctx['vault'].resolve() == configuration.workspace(cp).resolve() or not api.inside(ctx['vault'], configuration.workspace(cp)):
         raise api.AskError('V1 vault must be a directory inside its private workspace')
     return cp, ctx
 
@@ -53,7 +49,7 @@ def _workspace_cli(api, ws):
 
 
 def _install_hook(api, cp):
-    ws = cp.parent
+    ws = configuration.workspace(cp)
     hooks = ws / '.ask' / 'hooks'
     api.ensure_no_symlink_path(hooks)
     current = _git(ws, 'config', '--local', '--get', 'core.hooksPath').stdout.strip()
@@ -67,7 +63,7 @@ def _install_hook(api, cp):
     api.ensure_no_symlink_path(hook)
     if hook.exists() and hook.stat().st_nlink != 1:
         raise api.AskError('managed hook path is a hardlink; original files preserved')
-    command = '%s %s validate --config %s --staged --json' % tuple(shlex.quote(str(x)) for x in (sys.executable, _workspace_cli(api, ws), cp))
+    command = ('%s %s validate '+ ('--workspace' if cp.is_dir() else '--config') +' %s --staged --json') % tuple(shlex.quote(str(x)) for x in (sys.executable, _workspace_cli(api, ws), cp))
     content = '#!/bin/sh\n# ASK managed staged-snapshot validator\nexec '+command+'\n'
     if hook.exists() and '# ASK managed staged-snapshot validator' not in hook.read_text():
         raise api.AskError('foreign ASK hook path preserved')
@@ -99,38 +95,35 @@ def _setup_identity(api, ws):
 def _setup(api, args):
     ws = Path(args.workspace).expanduser().absolute()
     api.ensure_no_symlink_path(ws)
-    cp = ws / 'ask.json'
-    fresh = not cp.exists()
+    legacy = ws/'ask.json'
+    fresh = not (legacy.exists() or configuration.native(ws))
     if not fresh:
-        data = _json(cp)
-        if not isinstance(data, dict) or data.get('ask_version') != VERSION:
+        cp = configuration.reference(workspace_path=ws)
+        data = configuration.read(cp)
+        if data.get('ask_version') != configuration.DEFAULTS['ask_version']:
             raise api.AskError('existing configuration is not a V1 installation; preserve it and follow the upgrade guide')
+        if args.vault_name and args.vault_name != data.get('vault_root'):
+            raise api.AskError('--vault-name differs from existing configuration; no migration was performed')
+        if args.read_only and data.get('access',{}).get('write'):
+            raise api.AskError('--read-only differs from existing access settings; edit settings explicitly; no overwrite was performed')
     else:
         if ws.exists() and any(ws.iterdir()):
             raise api.AskError('setup requires a new empty workspace; existing files were preserved')
-        # Refuse an ancestor repository before writing any scaffold.
         parent = ws
         while not parent.exists():
             parent = parent.parent
         if _git(parent, 'rev-parse', '--show-toplevel').returncode == 0:
             raise api.AskError('private workspace must be outside every existing repository')
         with contextlib.redirect_stdout(io.StringIO()):
-            created = api.init(argparse.Namespace(workspace=str(ws), vault_name=args.vault_name))
-        data = _json(cp)
-        data.update({'ask_version': VERSION, 'template_version': VERSION,
-                     'validation': {'topology': True}, 'backup': {'mode': 'session'}})
-        data['access']['write'] = [] if args.read_only else ['Projects','People','Personal','Tasks','Memory','date.md','goals.md','INDEX.md','Agents/capabilities']
-        _save(cp, data)
-        (ws/'AGENTS.md').write_text(
-            '# ASK private workspace bootstrap\n\n'
-            'Resolve paths relative to the directory containing this file, not the shell working directory.\n'
-            'Read `ask.json` beside this file to locate `vault_root` and access declarations.\n'
-            'For every session, read these notes under that vault in order: `date.md`, `INDEX.md`, `agents.md`, `knowledge-map.md`.\n'
-            'Then route and follow the knowledge continuity loop before writing.\n'
-            'Delegated workers with `KB_ACCESS: none` must skip vault access.\n'
-            'Installation must also persist this bootstrap in the agent runtime; this workspace file alone does not prove enrollment.\n'
-            'Use `system/scripts/ask.py` in this workspace for ASK commands; preserve existing runtime instructions.\n'
-            'Configuration declarations do not grant runtime permissions.\n', encoding='utf-8')
+            created = api.init(argparse.Namespace(workspace=str(ws), vault_name=args.vault_name, read_only=args.read_only))
+        cp = ws
+        data = configuration.read(cp)
+        if args.read_only:
+            data['access']['write'] = []
+            changed = configuration.save(cp, data)
+            if changed not in created:
+                created.append(changed)
+        (ws/'AGENTS.md').write_text(api.workspace_adapter(), encoding='utf-8')
         (ws/'.gitignore').write_text('.ask/\n.DS_Store\n**/.obsidian/workspace*.json\n**/.obsidian/cache/\n.env\n.env.*\n*.pem\n*.key\n__pycache__/\n', encoding='utf-8')
     cp, ctx = _context(api, cp)
     report = _assert_valid(api, cp)
@@ -143,12 +136,19 @@ def _setup(api, args):
     if args.repository:
         if not fresh and _git(ws, 'rev-parse', '--verify', 'HEAD').returncode != 0:
             raise api.AskError('initial baseline is not committed; use the reviewed fresh-setup initial_checkpoint_files with checkpoint before retrying setup (see docs/install.md)')
+        existing_repository = data.get('backup', {}).get('repository')
+        if cp.is_dir() and existing_repository and existing_repository.casefold() != gitops._parse_slug(args.repository).casefold():
+            raise api.AskError('the requested repository conflicts with existing owner settings; review them before changing the remote')
         result['remote'] = gitops.configure_remote(ws, args.repository, create=args.create_repository)
-        data = _json(cp)
-        config_changed = data.get('backup', {}).get('repository') != result['remote']['repository']
-        data.setdefault('backup', {})['repository'] = result['remote']['repository']
+        data = configuration.read(cp)
+        # Native installs use Git's verified origin as the backup binding, as
+        # the private ASK does; do not recreate a settings file for defaults.
+        config_changed = cp.is_file() and data.get('backup', {}).get('repository') != result['remote']['repository']
         if config_changed:
-            _save(cp, data)
+            data.setdefault('backup', {})['repository'] = result['remote']['repository']
+            changed = configuration.save(cp, data)
+            if fresh and changed not in result['initial_checkpoint_files']:
+                result['initial_checkpoint_files'].append(changed)
         _setup_identity(api, ws)
         if _git(ws, 'rev-parse', '--verify', 'HEAD').returncode != 0:
             initial = result.get('initial_checkpoint_files')
@@ -157,7 +157,7 @@ def _setup(api, args):
             result['backup'] = gitops.checkpoint(ws, initial, 'Initialize private ASK workspace', lambda: _assert_valid(api, cp, True), owner_approved=True)
         else:
             if config_changed:
-                result['configuration_checkpoint'] = gitops.checkpoint(ws,['ask.json'],'Configure private ASK backup',lambda: _assert_valid(api,cp,True),owner_approved=True)
+                result['configuration_checkpoint'] = gitops.checkpoint(ws,[cp.name],'Configure private ASK backup',lambda: _assert_valid(api,cp,True),owner_approved=True)
             result['backup'] = gitops.sync(ws)
         if result['backup'].get('backup_pending'):
             result['pending'].append('GitHub backup is pending; run sync when connected.')
@@ -187,24 +187,25 @@ def _setup(api, args):
 
 def _doctor(api, cp):
     cp, ctx = _context(api, cp)
+    ws = ctx['workspace']
     report, _ = validation.validate(api, cp)
-    checks = {'validation': report, 'workspace': str(cp.parent), 'vault': str(ctx['vault'])}
+    checks = {'validation': report, 'workspace': str(ws), 'vault': str(ctx['vault'])}
     try:
-        checks['git'] = gitops.status(cp.parent)
+        checks['git'] = gitops.status(ws)
     except gitops.GitError as e:
         checks['git'] = {'error': str(e)}
-    registry = cp.parent/'.ask/runtime.json'
+    registry = ws/'.ask/runtime.json'
     keys = _json(registry).get('runtimes', {}) if registry.exists() else {}
     checks['runtimes'] = {key: runtime.inspect(cp,key) for key in keys}
-    checks['writers'] = gitops.active_writes(cp.parent)
-    status = cp.parent/'.ask/backup-status.json'
+    checks['writers'] = gitops.active_writes(ws)
+    status = ws/'.ask/backup-status.json'
     checks['backup'] = _json(status) if status.exists() else {'state':'not-scheduled-or-not-run'}
     st=checks['git']
-    st['head']=_git(cp.parent,'rev-parse','--verify','HEAD').stdout.strip()
-    st['remote_head']=_git(cp.parent,'rev-parse','--verify','@{u}').stdout.strip()
+    st['head']=_git(ws,'rev-parse','--verify','HEAD').stdout.strip()
+    st['remote_head']=_git(ws,'rev-parse','--verify','@{u}').stdout.strip()
     readiness=setup_checks.assess(cp,st,{'runtimes':checks['runtimes']},report)
-    configured_hook=_git(cp.parent,'config','--get','core.hooksPath').stdout.strip()
-    if configured_hook not in (str(cp.parent/'.ask/hooks'), '.ask/hooks'):
+    configured_hook=_git(ws,'config','--get','core.hooksPath').stdout.strip()
+    if configured_hook not in (str(ws/'.ask/hooks'), '.ask/hooks'):
         readiness['checks']['hook']={'ok':False,'status':'not-configured','detail':'Git is not using the ASK hook directory'}
         readiness['pending']=list(dict.fromkeys(readiness['pending']+['hook']))
         readiness['state']='setup-pending'
@@ -216,7 +217,7 @@ def _doctor(api, cp):
 def _check_write_scope(api, cp, ctx, paths, approved):
     for raw in paths:
         rel = api.safe_rel(raw, 'checkpoint file')
-        target = cp.parent/rel
+        target = configuration.workspace(cp)/rel
         if target.is_dir():
             raise api.AskError('checkpoint requires individual file paths, not directories')
         if approved:
@@ -233,7 +234,7 @@ def dispatch(api, argv):
     parser = argparse.ArgumentParser(prog='ask.py')
     subs = parser.add_subparsers(dest='command', required=True)
     setup = subs.add_parser('setup')
-    setup.add_argument('--workspace', required=True)
+    setup.add_argument('--workspace','--root',dest='workspace', required=True)
     setup.add_argument('--vault-name')
     setup.add_argument('--repository')
     setup.add_argument('--create-repository', action='store_true')
@@ -241,7 +242,7 @@ def dispatch(api, argv):
     setup.add_argument('--read-only', action='store_true')
     setup.add_argument('--backup', choices=('session','scheduled'), default='session')
     for cmd in ('doctor','sync','checkpoint'):
-        p = subs.add_parser(cmd); p.add_argument('--config',required=True)
+        p = subs.add_parser(cmd); configuration.add_selector(p)
         p.add_argument('--json',action='store_true')
         if cmd=='checkpoint':
             p.add_argument('--files',nargs='+',required=True)
@@ -249,20 +250,20 @@ def dispatch(api, argv):
             p.add_argument('--owner-approved',action='store_true')
     p=subs.add_parser('agent'); actions=p.add_subparsers(dest='action',required=True)
     for action in ('connect','disconnect','status','verify','onboarding'):
-        q=actions.add_parser(action); q.add_argument('--config',required=True); q.add_argument('--runtime',required=True)
+        q=actions.add_parser(action); configuration.add_selector(q); q.add_argument('--runtime',required=True)
         if action=='verify': q.add_argument('--evidence',help='JSON file containing controller-observed fresh-session proof')
         if action=='onboarding': q.add_argument('--profile',help='Sanitized caller-observed JSON; generates proposed rows without writing notes')
     p=subs.add_parser('write'); actions=p.add_subparsers(dest='action',required=True)
     for action in ('begin','end'):
-        q=actions.add_parser(action); q.add_argument('--config',required=True)
+        q=actions.add_parser(action); configuration.add_selector(q)
         q.add_argument('--actor' if action=='begin' else '--token',required=True)
     p=subs.add_parser('backup'); actions=p.add_subparsers(dest='action',required=True)
     for action in ('enable','disable','run','status'):
-        q=actions.add_parser(action); q.add_argument('--config',required=True)
+        q=actions.add_parser(action); configuration.add_selector(q)
     args=parser.parse_args(argv)
     try:
         if args.command=='setup': return _setup(api,args)
-        cp,ctx=_context(api,args.config); ws=cp.parent
+        cp,ctx=_context(api,configuration.reference(args.workspace,args.config)); ws=configuration.workspace(cp)
         if args.command=='doctor':
             result=_doctor(api,cp); emit(result); return 0 if result['state']=='ready' else 2
         if args.command=='agent':

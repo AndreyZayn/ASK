@@ -11,7 +11,7 @@ governed_by:
 ---
 # Frontmatter Schema
 
-Every note starts with flat YAML frontmatter. The machine-readable schema lives in the workspace next to the configuration file; the owner may extend its `kind`, `scope`, and `lifecycle_status` values there. ASK supports a documented subset of YAML and JSON Schema, described in the installed `system/docs/schema.md`.
+Every note starts with flat YAML frontmatter. This note is the human-readable schema. Machine validation rules live in `system/scripts/asklib/schema.py` relative to the workspace root, outside the vault. With owner direction, extend its literal `SCHEMA` and keep this note and [[tags]] aligned. Native installations do not use root JSON configuration or JSON schema files. ASK supports a documented subset of YAML and JSON Schema, described in the installed `system/docs/schema.md`.
 
 ## Ordinary required fields
 
@@ -38,7 +38,7 @@ kind: decision
 scope: work
 lifecycle_status: active
 updated: 2000-01-01
-tags: ["reference"]
+tags: ["projects"]
 governed_by:
   - "[[Agents/rules/knowledge-work]]"
 derived_from:

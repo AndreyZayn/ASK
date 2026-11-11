@@ -4,6 +4,8 @@
 is pending, not success. It never initializes a workspace or changes a runtime.
 """
 
+from . import configuration
+
 import json
 import os
 from pathlib import Path
@@ -42,7 +44,7 @@ def _covers(read_paths, note):
 
 def _config_check(config_path):
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config = configuration.read(config_path)
         if not isinstance(config, dict):
             raise ValueError("configuration is not an object")
         vault_name = _relative_path(config.get("vault_root"))
@@ -65,7 +67,7 @@ def _config_check(config_path):
             raise ValueError("read/write declarations are invalid")
         if not all(_covers(access["read"], note) for note in BOOTSTRAP):
             raise ValueError("read declarations do not cover the bootstrap")
-        vault = config_path.parent / vault_name
+        vault = configuration.workspace(config_path) / vault_name
         if not vault.is_dir() or vault.is_symlink() or any(
             not (vault / note).is_file() or (vault / note).is_symlink()
             for note in BOOTSTRAP
@@ -174,7 +176,7 @@ def _runtime_checks(runtime_status):
 
 
 def _hook_check(config_path):
-    hook = config_path.parent / ".ask" / "hooks" / "pre-commit"
+    hook = configuration.workspace(config_path) / ".ask" / "hooks" / "pre-commit"
     try:
         if not hook.is_file() or hook.is_symlink() or not os.access(hook, os.X_OK):
             return _check(False, "not-configured", "Executable pre-commit hook is missing")
@@ -184,9 +186,10 @@ def _hook_check(config_path):
                 tokens = shlex.split(line, comments=True)
             except ValueError:
                 continue
-            if "--config" not in tokens:
+            selector = '--workspace' if config_path.is_dir() else '--config'
+            if selector not in tokens:
                 continue
-            pos = tokens.index("--config")
+            pos = tokens.index(selector)
             if pos + 1 >= len(tokens):
                 continue
             if (Path(tokens[pos + 1]).expanduser().absolute() == config_path.absolute()
@@ -203,6 +206,14 @@ def assess(config_path: Path, git_status: dict, runtime_status: dict,
     """Return deterministic readiness aggregation; never treat absent proof as ready."""
     config_path = Path(config_path)
     config, config_check = _config_check(config_path)
+    if config_path.is_dir() and config_check['ok'] and isinstance(git_status, dict):
+        # For native workspaces the owner-selected Git origin is the binding;
+        # an explicit non-default setting, when present, remains authoritative.
+        backup = config.setdefault('backup', {})
+        if isinstance(backup, dict) and not backup.get('repository'):
+            repository = _origin_repo(git_status.get('origin'))
+            if repository:
+                backup['repository'] = repository
     counts = validation_report.get("counts") if isinstance(validation_report, dict) else None
     valid = (
         isinstance(counts, dict)

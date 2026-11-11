@@ -5,6 +5,8 @@ runtimes (Claude Code, Codex, Amp, Droid, Antigravity) or return manual instruct
 runtime. Standard library only, Python 3.9 compatible.
 """
 
+from . import configuration
+
 import hashlib
 import json
 import os
@@ -60,10 +62,9 @@ def _reject_symlinks(path: Path, label: str) -> Path:
 
 def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
     cp = _reject_symlinks(Path(config_path), 'config')
-    if not cp.is_file():
-        raise RuntimeError('config does not exist: %s' % cp)
     try:
-        cfg = json.loads(cp.read_text(encoding='utf-8'))
+        cp = configuration.reference(config_path=cp)
+        cfg = configuration.read(cp)
     except (OSError, ValueError) as e:
         raise RuntimeError('cannot read config: %s' % e)
     if not isinstance(cfg, dict):
@@ -72,15 +73,16 @@ def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
         raise RuntimeError('config version must be the integer 1')
     if not isinstance(cfg.get('vault_root'), str) or not cfg['vault_root']:
         raise RuntimeError('vault_root must be a non-empty path')
-    if not isinstance(cfg.get('schema_path'), str) or not cfg['schema_path']:
+    if cp.is_file() and (not isinstance(cfg.get('schema_path'), str) or not cfg['schema_path']):
         raise RuntimeError('schema_path must be a non-empty path')
     raw_vault = Path(cfg['vault_root'])
-    vault = raw_vault if raw_vault.is_absolute() else cp.parent / raw_vault
+    vault = raw_vault if raw_vault.is_absolute() else configuration.workspace(cp) / raw_vault
     vault = _reject_symlinks(vault, 'vault_root')
     if not vault.is_dir():
         raise RuntimeError('vault_root is not a directory: %s' % vault)
-    schema = cp.parent / Path(cfg['schema_path'])
-    if Path(cfg['schema_path']).is_absolute() or '..' in Path(cfg['schema_path']).parts:
+    schema_rel = cfg['schema_path'] if cp.is_file() else 'system/scripts/asklib/schema.py'
+    schema = configuration.workspace(cp) / Path(schema_rel)
+    if Path(schema_rel).is_absolute() or '..' in Path(schema_rel).parts:
         raise RuntimeError('schema_path must stay within its root')
     schema = _reject_symlinks(schema, 'schema_path')
     if not schema.is_file():
@@ -96,13 +98,13 @@ def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
             raise RuntimeError('bootstrap path is a symlink: %s' % p)
         if not p.is_file():
             raise RuntimeError('configured bootstrap note missing: %s' % name)
-    workspace = cp.parent
+    workspace = configuration.workspace(cp)
     return {
         'config_path': cp,
         'workspace': workspace,
         'vault': vault,
         'bootstrap_files': list(BOOTSTRAP_ORDER),
-        'config_digest': hashlib.sha256(cp.read_bytes()).hexdigest(),
+        'config_digest': hashlib.sha256(cp.read_bytes() if cp.is_file() else json.dumps(cfg,sort_keys=True).encode('utf-8')).hexdigest(),
     }
 
 
@@ -186,7 +188,7 @@ def _build_block(ctx: Dict[str, Any]) -> str:
     vault = str(ctx['vault'])
     dist = str(_dist_ask(ctx))
     start, end = _markers(ctx['workspace'])
-    cmd = '%s %s validate --config %s --json' % (
+    cmd = ('%s %s validate '+ ('--workspace' if ctx['config_path'].is_dir() else '--config') +' %s --json') % (
         shlex.quote('python3'), shlex.quote(dist), shlex.quote(cfg))
     lines = [
         start,
@@ -284,11 +286,12 @@ def _manual_instructions(ctx: Dict[str, Any], runtime_key: str) -> str:
         '3. Instruct the agent to read, in order: date.md, INDEX.md, '
         'agents.md, knowledge-map.md, then route from the knowledge map and '
         'follow knowledge-continuity-loop.md.\n'
-        '4. Validate with: %s %s validate --config %s --json\n'
+        '4. Validate with: %s %s validate %s %s --json\n'
         'Enrollment state is recorded as manual; the owner completes the '
         'wiring by hand. See docs/runtime.md for surface-specific steps and gaps. '
         % (runtime_key, ctx['workspace'], ctx['config_path'], ctx['vault'],
            shlex.quote('python3'), shlex.quote(dist),
+           '--workspace' if ctx['config_path'].is_dir() else '--config',
            shlex.quote(str(ctx['config_path']))))
 
 
@@ -490,7 +493,7 @@ def verification_prompt(config_path: Union[str, Path]) -> str:
     ctx = _load_config(config_path)
     dist = str(_dist_ask(ctx))
     scratch = 'Tasks/_ask_verification_sentinel.md'
-    cmd = '%s %s validate --config %s --json' % (
+    cmd = ('%s %s validate '+ ('--workspace' if ctx['config_path'].is_dir() else '--config') +' %s --json') % (
         shlex.quote('python3'), shlex.quote(dist),
         shlex.quote(str(ctx['config_path'])))
     return (

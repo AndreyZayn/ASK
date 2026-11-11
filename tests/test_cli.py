@@ -1,3 +1,4 @@
+from legacy_fixture import legacy_result
 import json
 import os
 from pathlib import Path
@@ -11,7 +12,7 @@ ASK = ROOT / 'scripts' / 'ask.py'
 
 
 def cli(*args, env=None):
-    return subprocess.run([sys.executable, str(ASK), *map(str, args)], text=True, capture_output=True, env=env)
+    return legacy_result(subprocess.run([sys.executable, str(ASK), *map(str, args)], text=True, capture_output=True, env=env), args)
 
 
 class AskCliTests(unittest.TestCase):

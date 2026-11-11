@@ -4,6 +4,7 @@
 No network except through the installed `gh` CLI (repo visibility checks and
 creation) and Git remote operations. No force-push, no stash, no rebase.
 """
+from . import configuration
 import json
 import os
 import re
@@ -189,23 +190,22 @@ def active_writes(workspace):
 
 
 def _load_vault(ws):
-    """Return (vault Path, bootstrap list) from ask.json.
+    """Resolve native or legacy vault settings for protected-path checks.
 
-    Tolerant only when ask.json is absent. An unreadable or corrupt ask.json
-    fails closed so protected-path detection never silently degrades.
+    Invalid or incomplete ASK installations fail closed. Plain Git repositories
+    with no ASK layout retain the generic repository behavior.
     """
-    cfg_path = ws / "ask.json"
-    if not cfg_path.exists():
-        return ws, []
     try:
-        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        if not (ws/'ask.json').exists() and not configuration.native(ws):
+            if (ws/'system').exists() or (ws/'Knowledge Base').exists():
+                raise ValueError('workspace configuration or native installation marker is missing')
+            return ws, []
+        cfg = configuration.read(ws)
     except (OSError, ValueError) as e:
-        raise GitError("cannot read workspace ask.json: %s" % e)
-    if not isinstance(cfg, dict):
-        raise GitError("invalid workspace ask.json object")
+        raise GitError("cannot read workspace configuration: %s" % e)
     raw = cfg.get("vault_root", "")
     if not isinstance(raw, str):
-        raise GitError("invalid vault_root in workspace ask.json")
+        raise GitError("invalid vault_root in workspace configuration")
     vault = (ws / raw).absolute() if raw and not os.path.isabs(raw) \
         else Path(raw).absolute() if raw else ws
     boot = cfg.get("bootstrap_files", [])
@@ -286,7 +286,7 @@ def _check_rel(ws, value):
 
 
 def _is_protected(ws, rel):
-    if rel in WORKSPACE_FILES:
+    if rel in WORKSPACE_FILES or rel == "system" or rel.startswith("system/"):
         return True
     vault, boot = _load_vault(ws)
     try:

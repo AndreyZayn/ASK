@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ASK local workspace setup, validation, bootstrap, and graph export."""
 import argparse
+import ast
 import json
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ import shlex
 import sys
 from datetime import date
 from urllib.parse import urlsplit
+from asklib import configuration
 
 RELATIONS = ('governed_by', 'depends_on', 'derived_from', 'associated_with')
 DEFAULT_BOOTSTRAP = ['date.md', 'INDEX.md', 'agents.md', 'knowledge-map.md']
@@ -27,7 +29,7 @@ def inside(child, parent):
 
 
 def safe_rel(value, label, allow_dot=False):
-    if not isinstance(value, str) or not value or '\\' in value:
+    if not isinstance(value, str) or not value or '\\' in value or any(ord(c) < 32 for c in value):
         raise AskError('%s must be a non-empty relative path' % label)
     p = Path(value)
     if p.is_absolute() or any(x == '..' for x in p.parts) or (not allow_dot and str(p) == '.'):
@@ -68,9 +70,9 @@ def adapter(config, cfgpath, tool_path=None):
     cfgpath = Path(cfgpath).resolve()
     boot = config['bootstrap_files']
     read = config['access']['read']; write = config['access']['write']
-    local_cli = cfgpath.parent / 'system' / 'scripts' / 'ask.py'
+    local_cli = configuration.workspace(cfgpath) / 'system' / 'scripts' / 'ask.py'
     ensure_no_symlink_path(local_cli)
-    command = 'python3 %s validate --config %s' % (shlex.quote(str(tool_path or (local_cli if local_cli.is_file() else Path(__file__).resolve()))), shlex.quote(str(cfgpath)))
+    command = ('python3 %s validate '+ ('--workspace' if cfgpath.is_dir() else '--config') +' %s') % (shlex.quote(str(tool_path or (local_cli if local_cli.is_file() else Path(__file__).resolve()))), shlex.quote(str(cfgpath)))
     lines = ['# Workspace agent bootstrap', '',
              'The owner configured this workspace adapter. Follow the notes in this order:']
     lines += ['%d. `%s`' % (i, vault / p) for i, p in enumerate(boot, 1)]
@@ -85,6 +87,20 @@ def adapter(config, cfgpath, tool_path=None):
     return '\n'.join(lines) + '\n'
 
 
+def workspace_adapter():
+    """Keep committed entry instructions portable across workspace moves."""
+    return ('# ASK workspace agent bootstrap\n\n'
+            'Treat the directory containing this file as the ASK workspace; resolve paths relative to it.\n'
+            'Delegated workers with `KB_ACCESS: none` must skip knowledge-base access.\n'
+            'Otherwise, run `python3 system/scripts/ask.py bootstrap --workspace WORKSPACE` from the workspace, '
+            'replacing WORKSPACE with its path, to resolve the vault and declared access. '
+            'The default vault is `Knowledge Base`.\n'
+            'Read `date.md`, `INDEX.md`, `agents.md`, and `knowledge-map.md` in that vault, in that order.\n'
+            'Then route and follow `knowledge-continuity-loop.md` before writing.\n'
+            'Persist this bootstrap in each installing runtime and verify fresh sessions inside and outside the workspace.\n'
+            'Configuration declarations do not grant runtime permissions.\n')
+
+
 def init(args):
     dist = Path(__file__).resolve().parents[1]
     ws = Path(args.workspace).expanduser().absolute()
@@ -92,6 +108,8 @@ def init(args):
     if inside(ws, dist):
         raise AskError('workspace must be outside the distribution')
     vault_rel = safe_rel(args.vault_name or 'Knowledge Base', 'vault name')
+    if vault_rel.parts[0].startswith('~') or str(vault_rel) != str(vault_rel).strip():
+        raise AskError('vault name cannot use home expansion or surrounding whitespace')
     if vault_rel.parts[0].casefold() in {'system', 'artifacts', '.ask', '.git'}:
         raise AskError('vault name overlaps a reserved ASK directory')
     if not ws.exists():
@@ -104,14 +122,20 @@ def init(args):
     if ws.exists(): check_inside_symlinks(ws, vault)
     if not inside(vault, ws) or vault.resolve() == ws.resolve():
         raise AskError('vault name must name a directory inside the workspace')
-    planned = [ws/'ask.json', ws/'note.schema.json', ws/'AGENTS.md', ws/'artifacts'/'README.md']
+    for legacy in ('ask.json', 'note.schema.json'):
+        if (ws/legacy).exists() or (ws/legacy).is_symlink():
+            raise AskError('output already exists: %s; legacy installation preserved' % (ws/legacy))
+    read_only = getattr(args, 'read_only', True)
+    planned = [ws/'AGENTS.md', ws/'artifacts'/'README.md']
+    if vault_rel.as_posix() != 'Knowledge Base' or read_only:
+        planned.append(ws/'system/settings.ini')
     template_root = dist / 'templates' / 'vault'
     manifest_path = dist / 'install-manifest.json'
     ensure_no_symlink_path(manifest_path)
     try:
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
         entries = manifest['files']
-        if manifest.get('version') != 1 or not isinstance(entries, list) or not entries:
+        if manifest.get('version') != 1 or manifest.get('workspace_layout') != 2 or not isinstance(entries, list) or not entries:
             raise ValueError('invalid manifest shape')
         rels = [safe_rel(value, 'install manifest path') for value in entries]
         if len(set(rels)) != len(rels):
@@ -127,7 +151,7 @@ def init(args):
         if not src.is_file():
             raise AskError('installation manifest file is missing: %s' % rel)
         assets.append((src, ws / 'system' / rel))
-    if Path('scripts/ask.py') not in rels or Path('schemas/note.schema.json') not in rels:
+    if Path('scripts/ask.py') not in rels or Path('scripts/asklib/schema.py') not in rels:
         raise AskError('installation manifest omits required scripts or schema')
     assets.append((manifest_path, ws / 'system/install-manifest.json'))
     files = [src for src, _ in assets if inside(src, template_root)]
@@ -144,12 +168,20 @@ def init(args):
             raise AskError('output already exists: %s' % p)
     for p in planned:
         p.parent.mkdir(parents=True, exist_ok=True)
-    cfg = {'version': 1, 'vault_root': vault_rel.as_posix(), 'schema_path': 'note.schema.json',
-           'bootstrap_files': DEFAULT_BOOTSTRAP, 'access': {'read': ['.'], 'write': []}}
-    payloads = [(ws/'ask.json', json.dumps(cfg, indent=2) + '\n'),
-                (ws/'note.schema.json', (dist/'schemas'/'note.schema.json').read_text(encoding='utf-8')),
-                (ws/'AGENTS.md', adapter(dict(cfg, vault=vault), ws/'ask.json', ws/'system/scripts/ask.py')),
+    from copy import deepcopy
+    cfg = deepcopy(configuration.DEFAULTS)
+    cfg['vault_root'] = vault_rel.as_posix()
+    if read_only:
+        cfg['access']['write'] = []
+    payloads = [(ws/'AGENTS.md', workspace_adapter()),
                 (ws/'artifacts'/'README.md', '# Artifacts\n\nStore working outputs and other functional files here, outside the knowledge base. Treat contents as private and review files before committing or sharing them.\n')]
+    settings = ''
+    if vault_rel.as_posix() != 'Knowledge Base':
+        settings += '[workspace]\nvault_root = %s\n' % vault_rel.as_posix()
+    if read_only:
+        settings += '[access]\nwrite =\n'
+    if settings:
+        payloads.append((ws/'system/settings.ini', settings))
     for src in files:
         dest = vault / src.relative_to(template_root)
         payloads.append((dest, src.read_text(encoding='utf-8').replace('{{DATE}}', date.today().isoformat())))
@@ -170,21 +202,25 @@ def init(args):
 
 
 def load_config(path):
-    cp = Path(path).expanduser().absolute()
-    ensure_no_symlink_path(cp)
-    try: cfg=json.loads(cp.read_text(encoding='utf-8'))
+    try:
+        cp = configuration.reference(config_path=path)
+        cfg = configuration.read(cp)
     except (OSError, ValueError) as e: raise AskError('cannot read config: %s' % e)
+    ws = configuration.workspace(cp)
     if not isinstance(cfg, dict) or type(cfg.get('version')) is not int or cfg.get('version') != 1:
         raise AskError('config version must be the integer 1')
     if not isinstance(cfg.get('vault_root'), str) or not cfg['vault_root']: raise AskError('vault_root must be a path')
     raw=Path(cfg['vault_root']).expanduser()
-    vault=raw if raw.is_absolute() else cp.parent/raw
+    vault=raw if raw.is_absolute() else ws/raw
     ensure_no_symlink_path(vault)
     if not vault.is_dir(): raise AskError('vault_root is not a directory')
-    schema_rel=safe_rel(cfg.get('schema_path'), 'schema_path')
-    schema=cp.parent/schema_rel
+    schema = ws/'system/scripts/asklib/schema.py'
+    if cp.is_file():
+        schema_rel=safe_rel(cfg.get('schema_path'), 'schema_path')
+        schema=ws/schema_rel
+        ensure_no_symlink_path(schema)
     ensure_no_symlink_path(schema)
-    if not schema.is_file(): raise AskError('schema file does not exist')
+    if not schema.is_file(): raise AskError('schema file does not exist: %s' % schema)
     boot=cfg.get('bootstrap_files', DEFAULT_BOOTSTRAP)
     access=cfg.get('access', {'read':['.'], 'write':[]})
     if not isinstance(boot,list) or not boot: raise AskError('bootstrap_files must be a non-empty list')
@@ -208,13 +244,23 @@ def load_config(path):
         if not p.is_file() or not inside(p,vault): raise AskError('configured bootstrap note missing: %s'%x)
         if not any(r=='.' or x==r or x.startswith(r+'/') for r in norm['read']):
             raise AskError('bootstrap note %s is not covered by access.read paths'%x)
-    return {'config_path':cp,'vault':vault,'schema_path':schema,'vault_root':cfg['vault_root'],
+    return {'workspace':ws, 'validation':cfg.get('validation', {}), 'config_path':cp,'vault':vault,'schema_path':schema,'vault_root':cfg['vault_root'],
             'bootstrap_files':boot,'access':norm}
 
 
 def validate_schema(path):
-    try: schema=json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, ValueError) as e: raise AskError('cannot read schema: %s'%e)
+    try:
+        if path.suffix == '.py':
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            values = [node.value for node in tree.body if isinstance(node, ast.Assign)
+                      and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+                      and node.targets[0].id == 'SCHEMA']
+            if len(values) != 1:
+                raise ValueError('Python rules must declare exactly one literal SCHEMA')
+            schema = ast.literal_eval(values[0])
+        else:
+            schema=json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError, SyntaxError) as e: raise AskError('cannot read schema: %s'%e)
     notes={'$schema','title','description'}
     scalar_keys={'string':{'enum','minLength','format'},'boolean':{'enum'}}
     def check_scalar(s, name):
@@ -556,14 +602,22 @@ def write_new(path, content):
 
 def run(args):
     if args.command=='init': init(args); return 0
-    ctx=None if getattr(args,'staged',False) else load_config(args.config)
+    staged = getattr(args, 'staged', False)
+    if staged:
+        # Resolve configuration from the index, including deleted worktree files.
+        ref = configuration.safe_path(args.workspace or args.config)
+        if args.workspace and not ref.is_dir():
+            raise AskError('workspace is not a directory: %s' % ref)
+    else:
+        ref = configuration.reference(args.workspace, args.config)
+    ctx=None if staged else load_config(ref)
     if args.command=='bootstrap':
         text=adapter({'vault':ctx['vault'],'bootstrap_files':ctx['bootstrap_files'],'access':ctx['access']},ctx['config_path'])
         if args.output: write_new(output_guard(args.output,ctx),text)
         else: sys.stdout.write(text)
         return 0
     from asklib import validation
-    report,graph=validation.validate(sys.modules[__name__], args.config, staged=getattr(args,'staged',False), files=getattr(args,'files',None))
+    report,graph=validation.validate(sys.modules[__name__], ref, staged=getattr(args,'staged',False), files=getattr(args,'files',None))
     if args.command=='validate':
         if args.json: sys.stdout.write(json.dumps(report,sort_keys=True)+'\n')
         else:
@@ -586,9 +640,9 @@ def main():
         from asklib import v1
         return v1.dispatch(sys.modules[__name__], sys.argv[1:])
     parser=argparse.ArgumentParser(prog='ask.py'); sub=parser.add_subparsers(dest='command',required=True)
-    p=sub.add_parser('init'); p.add_argument('--workspace',required=True); p.add_argument('--vault-name');
+    p=sub.add_parser('init'); p.add_argument('--workspace','--root',dest='workspace',required=True); p.add_argument('--vault-name');
     for name in ('validate','bootstrap','graph'):
-        p=sub.add_parser(name); p.add_argument('--config',required=True)
+        p=sub.add_parser(name); configuration.add_selector(p)
         if name in ('bootstrap','graph'): p.add_argument('--output')
         if name=='validate':
             p.add_argument('--json',action='store_true')
