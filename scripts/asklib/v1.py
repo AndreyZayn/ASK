@@ -109,7 +109,7 @@ def _setup(api, args):
         if _git(parent, 'rev-parse', '--show-toplevel').returncode == 0:
             raise api.AskError('private workspace must be outside every existing repository')
         with contextlib.redirect_stdout(io.StringIO()):
-            api.init(argparse.Namespace(workspace=str(ws), vault_name=args.vault_name))
+            created = api.init(argparse.Namespace(workspace=str(ws), vault_name=args.vault_name))
         data = _json(cp)
         data.update({'ask_version': VERSION, 'template_version': VERSION,
                      'validation': {'topology': True}, 'backup': {'mode': 'session'}})
@@ -132,7 +132,11 @@ def _setup(api, args):
     _install_hook(api, cp)
     result = {'state': 'setup-pending', 'workspace': str(ws), 'vault': str(ctx['vault']),
               'version': VERSION, 'validation': report['counts'], 'pending': []}
+    if fresh:
+        result['initial_checkpoint_files'] = sorted(created + ['.gitignore'])
     if args.repository:
+        if not fresh and _git(ws, 'rev-parse', '--verify', 'HEAD').returncode != 0:
+            raise api.AskError('initial baseline is not committed; use the reviewed fresh-setup initial_checkpoint_files with checkpoint before retrying setup (see docs/install.md)')
         result['remote'] = gitops.configure_remote(ws, args.repository, create=args.create_repository)
         data = _json(cp)
         config_changed = data.get('backup', {}).get('repository') != result['remote']['repository']
@@ -141,8 +145,9 @@ def _setup(api, args):
             _save(cp, data)
         _setup_identity(api, ws)
         if _git(ws, 'rev-parse', '--verify', 'HEAD').returncode != 0:
-            initial = ['ask.json','note.schema.json','AGENTS.md','.gitignore']
-            initial += [p.relative_to(ws).as_posix() for p in ctx['vault'].rglob('*') if p.is_file()]
+            initial = result.get('initial_checkpoint_files')
+            if initial is None:
+                raise api.AskError('initial baseline is not committed; use the reviewed fresh-setup initial_checkpoint_files with checkpoint before retrying setup (see docs/install.md)')
             result['backup'] = gitops.checkpoint(ws, initial, 'Initialize private ASK workspace', lambda: _assert_valid(api, cp, True), owner_approved=True)
         else:
             if config_changed:

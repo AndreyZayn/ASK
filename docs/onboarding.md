@@ -76,13 +76,15 @@ The JSON result contains proposed `header` and `row` strings and identity keys f
 
 ## Apply reviewed knowledge through the existing workflow
 
+For an offline first installation, complete the [initial generated baseline checkpoint](install.md#initial-local-baseline-before-offline-onboarding) before these narrow edits. A new untracked workspace cannot validate a staged roster alone because its configuration and schema are not yet in Git. Existing installations with a committed baseline continue normally.
+
 The installing agent reviews the existing notes and then performs authorized edits with its normal file tools:
 
 - Match roster records by local agent ID; match capability records by kind/name, runtime, and surface. Add a missing row, or reconcile that exact record in place. Preserve other agents, owner commentary, custom layouts, and stronger still-valid evidence. If two identities conflict, resolve that specific conflict before writing.
 - For standard tables, use a header only when the table is absent; append rows directly to that table. For custom prose or a different schema/layout, translate the facts into the existing structure instead of appending a parallel registry.
 - Remove an obsolete empty-placeholder sentence only when adding the first real record. Change `lifecycle_status: empty` to the appropriate locally supported state and update the note's `updated` date. Do not broaden enum values or overwrite a customized schema automatically.
 - Follow `knowledge-continuity-loop.md`: begin an authorized write session, record the locally agreed ID, update date/log evidence, validate, and checkpoint only owned files. The roster is protected; use the installation's explicit registration authority with `checkpoint --owner-approved` for that scoped change, not as standing permission for unrelated policy changes. Do not expand `access.write` merely to register an agent.
-- Sync to the verified private remote using the normal backup process. Report offline or missing-backup state honestly. The profile can remain temporary; the reviewed Markdown facts are canonical, not the JSON proposal.
+- End the write session after its edits/checkpoint, then sync to the verified private remote using the normal backup process. A sync deferred by active writers, staged work, or conflicts remains backup pending; it does not establish successful backup. Report offline or missing-backup state honestly. The profile can remain temporary; the reviewed Markdown facts are canonical, not the JSON proposal.
 
 For example, after reviewing the actual paths, use the normal CLI sequence (replace the placeholders; list only files you edited):
 
@@ -92,6 +94,7 @@ python3 scripts/ask.py write begin --config /path/to/workspace/ask.json --actor 
 python3 scripts/ask.py validate --config /path/to/workspace/ask.json --json
 python3 scripts/ask.py checkpoint --config /path/to/workspace/ask.json --files "Knowledge Base/Agents/roster.md" "Knowledge Base/Agents/capabilities/runtimes/INDEX.md" "Knowledge Base/Agents/capabilities/skills/INDEX.md" "Knowledge Base/Memory/Logs/YYYY-MM.md" --message "Register agent and observed capabilities" --owner-approved
 python3 scripts/ask.py write end --config /path/to/workspace/ask.json --token=RETURNED_TOKEN
+python3 scripts/ask.py sync --config /path/to/workspace/ask.json
 ```
 
 Keep the `--token=` form because an opaque token can begin with a hyphen. Paths passed to `checkpoint` are workspace-relative; substitute the configured vault name and legacy/custom catalog paths. Include `date.md` only if it needed an update. A local commit without a configured remote returns exit 2 with `backup_pending`; it does not undo the commit. End the write session after the authorized work, report backup pending, and follow the installation backup setup before claiming completion.

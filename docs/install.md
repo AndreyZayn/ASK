@@ -33,4 +33,38 @@ git -C /path/to/your-workspace config --local user.name "CHOSEN_NAME"
 git -C /path/to/your-workspace config --local user.email "CHOSEN_EMAIL"
 ```
 
-Use the owner's exact GitHub noreply address if they choose it; do not guess account identifiers or copy credentials. Review existing fields before replacing either. Rerun the original setup command with the intended private repository and runtime to complete backup/enrollment. An offline local checkpoint can then commit, but it remains backup pending until a verified push succeeds. The roster's local agent ID is separate from the owner's Git author identity.
+Use the owner's exact GitHub noreply address if they choose it; do not guess account identifiers or copy credentials. Review existing fields before replacing either. Create the initial local baseline described below, then rerun the original setup command with the intended private repository and runtime to complete backup/enrollment. An offline local checkpoint can then commit, but it remains backup pending until a verified push succeeds. The roster's local agent ID is separate from the owner's Git author identity.
+
+## Initial local baseline before offline onboarding
+
+A fresh offline setup creates untracked files. Before roster/capability edits or narrow checkpoints, commit that generated baseline. Save the JSON output of the **first** setup outside the workspace (exit 2 with `setup-pending` is expected):
+
+```sh
+python3 scripts/ask.py setup --workspace /path/to/your-workspace > /path/to/initial-setup.json
+```
+
+After configuring the repository-local identity, review `initial_checkpoint_files` in that trusted output. It enumerates only files the initializer created, including configuration and the generated vault, with workspace-relative paths. It excludes `.ask`, unrelated files subsequently added anywhere in the workspace/vault, and other staged work. Review current contents of those exact files before committing. Do not replace this list with `git add .`, a directory glob, or a scan of untracked files.
+
+From the public checkout, checkpoint the reviewed list:
+
+```sh
+python3 - /path/to/initial-setup.json <<'PY'
+import json
+from pathlib import Path
+import subprocess
+import sys
+report = json.loads(Path(sys.argv[1]).read_text())
+files = report.get('initial_checkpoint_files')
+if not files:
+    raise SystemExit('Missing initial manifest; stop and review the existing installation manually.')
+raise SystemExit(subprocess.call([
+    sys.executable, 'scripts/ask.py', 'checkpoint',
+    '--config', str(Path(report['workspace']) / 'ask.json'),
+    '--files', *files, '--message', 'Initialize generated ASK baseline', '--owner-approved',
+]))
+PY
+```
+
+Exit 2 with `committed: true` and `backup_pending: true` is a successful local baseline without remote backup. A rejected checkpoint is not a commit: resolve only the reported condition and retry. Pre-existing staged work is preserved and blocks the checkpoint; do not reset or include another person's work. Once the baseline exists, continue the narrow onboarding checkpoints and later configure/sync the private remote.
+
+A rerun does not reconstruct this manifest from the working directory. An existing installation without a first commit must use its saved trusted manifest or have an agent explicitly review and enumerate the initial owned files before checkpointing. Do not reinitialize or infer that all current files belong to ASK. `setup --repository` refuses that uncommitted existing baseline before contacting GitHub; a genuinely fresh one-step repository setup can checkpoint its exact newly generated list automatically.

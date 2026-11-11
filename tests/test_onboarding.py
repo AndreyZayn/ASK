@@ -71,6 +71,50 @@ class OnboardingTests(unittest.TestCase):
         self.cli('write','end','--config',self.config,'--token='+token,expected=0)
         self.assertEqual(list((self.ws/'.ask/writers').glob('*')),[])
 
+    def test_initial_baseline_manifest_excludes_unrelated_files_and_preserves_staging(self):
+        self.ws=self.root/'baseline workspace';self.config=self.ws/'ask.json';self.vault=self.ws/'Private Notes'
+        result=json.loads(self.cli('setup','--workspace',self.ws,'--vault-name','Private Notes',expected=2).stdout)
+        self.assertIn('initial_checkpoint_files',result)
+        files=result['initial_checkpoint_files']
+        self.assertEqual(len(files),len(set(files)))
+        fakebin=self.root/'fake-bin';fakebin.mkdir();marker=self.root/'github-called'
+        fakegh=fakebin/'gh'
+        fakegh.write_text('#!'+sys.executable+'\nfrom pathlib import Path\nPath('+repr(str(marker))+').write_text("called")\nraise SystemExit(1)\n')
+        fakegh.chmod(0o700)
+        self.env=dict(os.environ,PATH=str(fakebin)+os.pathsep+os.environ.get('PATH',''))
+        retry=self.cli('setup','--workspace',self.ws,'--repository','synthetic-owner/private-vault',expected=2)
+        self.assertIn('initial baseline is not committed',retry.stdout)
+        self.assertFalse(marker.exists())
+        del self.env
+        self.git('config','--local','user.name','Synthetic Owner')
+        self.git('config','--local','user.email','synthetic@example.invalid')
+        self.git('config','--local','commit.gpgsign','false')
+        unrelated=['unrelated.txt','Private Notes/Personal/unrelated.md']
+        for rel in unrelated:(self.ws/rel).write_text('Unrelated owner work.\n')
+        self.git('add','--',unrelated[0])
+        args=('checkpoint','--config',self.config,'--files',*files,'--message','Initial generated baseline','--owner-approved')
+        denied=self.cli(*args,expected=2)
+        self.assertIn('preexisting staged',denied.stdout)
+        self.assertEqual(self.git('diff','--cached','--name-only').splitlines(),[unrelated[0]])
+        self.git('rm','--cached','--',unrelated[0])
+        checkpoint=json.loads(self.cli(*args,expected=2).stdout)
+        self.assertTrue(checkpoint['committed']);self.assertTrue(checkpoint['backup_pending'])
+        self.assertEqual(set(self.git('ls-tree','-r','--name-only','HEAD').splitlines()),set(files))
+        for rel in unrelated:
+            self.assertNotIn(rel,files)
+            self.assertEqual((self.ws/rel).read_text(),'Unrelated owner work.\n')
+
+    def test_sync_during_active_write_keeps_backup_pending(self):
+        self.ws=self.root/'sync workspace';self.config=self.ws/'ask.json'
+        self.cli('setup','--workspace',self.ws,expected=2)
+        token=json.loads(self.cli('write','begin','--config',self.config,'--actor','synthetic-agent',expected=0).stdout)['token']
+        result=json.loads(self.cli('sync','--config',self.config,expected=2).stdout)
+        self.assertTrue(result['backup_pending']);self.assertFalse(result['pushed']);self.assertFalse(result['fetched'])
+        self.assertEqual(result['pull_reason'],'active-writers')
+        self.cli('write','end','--config',self.config,'--token='+token,expected=0)
+        result=json.loads(self.cli('sync','--config',self.config,expected=2).stdout)
+        self.assertTrue(result['backup_pending']);self.assertEqual(result['push_reason'],'no-remote')
+
     def test_clean_home_identity_is_local_and_backup_remains_pending(self):
         home=self.root/'isolated home';home.mkdir()
         self.env={key:value for key,value in os.environ.items() if not key.startswith('GIT_')}
@@ -78,8 +122,7 @@ class OnboardingTests(unittest.TestCase):
         self.ws=self.root/'identity workspace';self.config=self.ws/'ask.json';self.vault=self.ws/'Private Notes'
         result=json.loads(self.cli('setup','--workspace',self.ws,'--vault-name','Private Notes',expected=2).stdout)
         self.assertTrue(any('identity' in pending for pending in result['pending']))
-        files=['ask.json','note.schema.json','AGENTS.md','.gitignore']
-        files.extend(p.relative_to(self.ws).as_posix() for p in self.vault.rglob('*') if p.is_file())
+        files=result['initial_checkpoint_files']
         args=('checkpoint','--config',self.config,'--files',*files,'--message','Initialize synthetic workspace','--owner-approved')
         denied=self.cli(*args,expected=2)
         self.assertIn('missing repo-scoped identity',denied.stdout)
@@ -134,7 +177,12 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(setup['state'],'setup-pending')
         if legacy:self.legacy_catalogs()
         self.git('config','user.name','Synthetic Tester');self.git('config','user.email','test@example.invalid')
-        self.git('config','commit.gpgsign','false');self.git('add','.');self.git('commit','-m','Synthetic scaffold')
+        self.git('config','commit.gpgsign','false')
+        baseline=setup['initial_checkpoint_files']
+        if legacy:
+            baseline=[re.sub(r'Agents/capabilities/(skills|integrations|plugins|runtimes)/INDEX.md',r'Agents/capabilities/\1.md',path) for path in baseline]
+        initial=json.loads(self.cli('checkpoint','--config',self.config,'--files',*baseline,'--message','Synthetic generated baseline','--owner-approved',expected=2).stdout)
+        self.assertTrue(initial['committed']);self.assertTrue(initial['backup_pending'])
         # A valid unrelated change remains outside both scoped checkpoints.
         unrelated=self.vault/'goals.md';unrelated.write_text(unrelated.read_text()+'\nUnrelated owner edit.\n')
         unrelated_bytes=unrelated.read_bytes()
@@ -165,6 +213,8 @@ class OnboardingTests(unittest.TestCase):
             self.assertTrue(result['committed']);self.assertTrue(result['backup_pending'])
             changed=set(self.git('diff-tree','--no-commit-id','--name-only','-r','HEAD').splitlines())
             self.assertEqual(changed,owned)
+            deferred=json.loads(self.cli('sync','--config',self.config,expected=2).stdout)
+            self.assertTrue(deferred['backup_pending']);self.assertFalse(deferred['fetched'])
             self.cli('write','end','--config',self.config,'--token='+token,expected=0)
             self.assertEqual(unrelated.read_bytes(),unrelated_bytes)
             roster=(self.vault/'Agents/roster.md').read_text()

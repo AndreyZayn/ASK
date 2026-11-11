@@ -133,6 +133,7 @@ def init(args):
             except OSError: pass
         raise
     print('Initialized workspace at %s' % ws)
+    return [path.relative_to(ws).as_posix() for path in created]
 
 
 def load_config(path):
