@@ -33,18 +33,18 @@ Open `/path/to/your-workspace/Knowledge Base` as a vault in Obsidian, if you use
 ```text
 ASK/
 ├── Knowledge Base/   # private Markdown graph and agent knowledge
-├── system/           # installed scripts, templates, and guides
+├── system/           # installed scripts, templates, schemas, and guides
 ├── artifacts/        # private working files outside the vault
-└── AGENTS.md
+├── AGENTS.md
+├── ask.json
+└── note.schema.json
 ```
-
-Fresh installations create neither `ask.json` nor `note.schema.json`. Human-readable metadata guidance lives in `Knowledge Base/frontmatter-schema.md`; machine rules live in `system/scripts/asklib/schema.py`. Commands select the workspace with `--workspace PATH` (alias `--root`). Optional `system/settings.ini` stores deliberate deviations from defaults. Existing JSON installations remain supported without migration.
 
 The starter vault supplies routing, durable knowledge capture, eleven reusable professional hats, five separate software workflows, and a task-completion contract. Configurable path profiles validate note identity, state, and retrieval vocabulary alongside links and nearest-index coverage. See [framework coverage and limits](docs/framework-coverage.md) and the [runtime support matrix](docs/runtime.md#runtime-support-matrix). Existing notes and schema customizations are never upgraded automatically.
 
 ## Boundaries
 
-The four bootstrap notes, in order, are `date.md`, `INDEX.md`, `agents.md`, and `knowledge-map.md`. Each installing agent should persist that bootstrap in its actual runtime, preserving unrelated instructions. Runtime access and owner authority, not template text or access declarations, determine what an agent may do. A worker assigned `KB_ACCESS: none` must not read or bootstrap private knowledge.
+The four bootstrap notes, in order, are `date.md`, `INDEX.md`, `agents.md`, and `knowledge-map.md`. Each installing agent should persist that bootstrap in its actual runtime, preserving unrelated instructions. Runtime access and owner authority, not template text or `ask.json` declarations, determine what an agent may do. A worker assigned `KB_ACCESS: none` must not read or bootstrap private knowledge.
 
 The intended routine content scope includes Projects, People, Personal, Tasks, Memory, `date.md`, `goals.md`, `INDEX.md`, and ordinary Agents/capabilities content, subject to actual configured access and owner authorization. Policy, schema, taxonomy, roster, ontology, and the other protected bootstrap/rule notes require owner direction. Do not publish private notes or secrets.
 

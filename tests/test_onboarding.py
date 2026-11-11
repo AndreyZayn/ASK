@@ -1,5 +1,4 @@
 """Exercise read-only onboarding proposals and their reviewed synthetic use."""
-from legacy_fixture import legacy_result
 from datetime import date
 import hashlib
 import os
@@ -33,7 +32,6 @@ class OnboardingTests(unittest.TestCase):
 
     def cli(self,*args,expected=None):
         result=subprocess.run([sys.executable,str(SCRIPT),*map(str,args)],capture_output=True,text=True,env=getattr(self,'env',None))
-        result=legacy_result(result,args)
         if expected is not None:self.assertEqual(result.returncode,expected,result.stdout+result.stderr)
         return result
 

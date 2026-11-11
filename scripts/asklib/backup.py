@@ -5,8 +5,6 @@ Reuses gitops operations; never shells out with composed strings. No AI and
 no automatic knowledge rewriting: ordinary note changes are staged through
 gitops.checkpoint and pushed; protected files are left for the owner.
 """
-from . import configuration
-
 import hashlib
 import json
 import os
@@ -127,7 +125,7 @@ def enable(workspace, cli_path, config_path, interval=900):
         PLIST_MARKER: True,
         "ASKWorkspace": str(ws),
         "ProgramArguments": [sys.executable, str(cli), "backup", "run",
-                             "--workspace" if cfg.is_dir() else "--config", str(cfg)],
+                             "--config", str(cfg)],
         "WorkingDirectory": str(ws),
         "EnvironmentVariables": {"PATH": search_path},
         "StartInterval": interval,
@@ -225,7 +223,7 @@ def _run_locked(ws, validator, quiet_seconds):
     try:
         st = gitops.status(ws)
         vault, _ = gitops._load_vault(ws)
-        cfg = configuration.read(ws)
+        cfg = json.loads((ws / "ask.json").read_text(encoding="utf-8"))
         writable = cfg.get("access", {}).get("write", [])
         if not isinstance(writable, list) or not all(isinstance(p, str) for p in writable):
             raise ValueError("invalid access.write")

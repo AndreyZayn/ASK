@@ -1,5 +1,4 @@
 """Staged + advanced validation wrapper tests (synthetic temp Git repos only)."""
-from legacy_fixture import legacy_workspace
 import json
 import os
 import subprocess
@@ -21,7 +20,6 @@ def cli_init(ws):
          'init', '--workspace', str(ws)],
         text=True, capture_output=True)
     assert r.returncode == 0, r.stderr
-    legacy_workspace(ws)
     return ws / 'ask.json'
 
 

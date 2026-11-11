@@ -1,5 +1,4 @@
 """The installed ASK folder owns its tools, vault, and artifact space."""
-from legacy_fixture import legacy_workspace
 import json
 import os
 from pathlib import Path
@@ -38,7 +37,6 @@ class WholeWorkspaceTest(unittest.TestCase):
             first = subprocess.run(command+['setup','--workspace',str(workspace)], text=True, capture_output=True, env=env)
             self.assertEqual(json.loads(first.stdout)['state'], 'setup-pending', first.stdout)
             note = workspace/'Knowledge Base/goals.md'; before = note.read_bytes()
-            legacy_workspace(workspace,setup=True)
             shutil.rmtree(workspace/'system')
             result = subprocess.run(command+['setup','--workspace',str(workspace),'--runtime','generic'], text=True, capture_output=True, env=env)
             self.assertEqual(json.loads(result.stdout)['state'], 'setup-pending', result.stdout)
@@ -62,7 +60,7 @@ class WholeWorkspaceTest(unittest.TestCase):
             external = root/'unrelated.py'; external.write_text('# unrelated\n')
             local.symlink_to(external)
             for args in (['setup','--workspace',str(workspace)],
-                         ['agent','connect','--workspace',str(workspace),'--runtime','generic']):
+                         ['agent','connect','--config',str(workspace/'ask.json'),'--runtime','generic']):
                 result = subprocess.run(command + args, text=True, capture_output=True, env=env)
                 self.assertEqual(result.returncode, 2)
                 self.assertIn('symlink', result.stdout.lower())
@@ -75,9 +73,7 @@ class WholeWorkspaceTest(unittest.TestCase):
         manifest = json.loads((SOURCE/'install-manifest.json').read_text())['files']
         tracked = subprocess.check_output(['git', 'ls-files', 'scripts', 'schemas', 'templates', 'docs', 'README.md', 'LICENSE'],
                                           cwd=SOURCE, text=True).splitlines()
-        self.assertTrue(set(tracked) <= set(manifest))
-        for rel in manifest:
-            self.assertTrue((SOURCE/rel).is_file(), rel)
+        self.assertEqual(set(manifest), set(tracked))
 
     def test_missing_or_symlinked_manifest_asset_fails_before_workspace_files(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -141,13 +137,13 @@ class WholeWorkspaceTest(unittest.TestCase):
             self.assertIn(str(installed), runtime_instructions)
             self.assertNotIn(str(source), runtime_instructions)
             shutil.rmtree(source)
-            run = subprocess.run([sys.executable, str(installed), 'validate', '--workspace',
-                                  str(workspace), '--json'], text=True, capture_output=True, env=env)
+            run = subprocess.run([sys.executable, str(installed), 'validate', '--config',
+                                  str(workspace / 'ask.json'), '--json'], text=True, capture_output=True, env=env)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             self.assertEqual(json.loads(run.stdout)['counts']['errors'], 0)
             for key, value in [('user.name', 'Synthetic Owner'), ('user.email', 'owner@example.invalid')]:
                 subprocess.run(['git', '-C', str(workspace), 'config', '--local', key, value], check=True, env=env)
-            cp = subprocess.run([sys.executable, str(installed), 'checkpoint', '--workspace', str(workspace),
+            cp = subprocess.run([sys.executable, str(installed), 'checkpoint', '--config', str(workspace/'ask.json'),
                                  '--files', *report['initial_checkpoint_files'], '--message', 'Initial ASK', '--owner-approved'],
                                 text=True, capture_output=True, env=env)
             self.assertEqual(cp.returncode, 2, cp.stdout + cp.stderr)
@@ -155,7 +151,7 @@ class WholeWorkspaceTest(unittest.TestCase):
             self.assertTrue(json.loads(cp.stdout)['backup_pending'], cp.stdout)
             artifact = workspace / 'artifacts' / 'result.txt'
             artifact.write_text('Synthetic working output.\n')
-            artifact_cp = subprocess.run([sys.executable, str(installed), 'checkpoint', '--workspace', str(workspace),
+            artifact_cp = subprocess.run([sys.executable, str(installed), 'checkpoint', '--config', str(workspace/'ask.json'),
                                           '--files', 'artifacts/result.txt', '--message', 'Save artifact', '--owner-approved'],
                                          text=True, capture_output=True, env=env)
             self.assertEqual(artifact_cp.returncode, 2, artifact_cp.stdout + artifact_cp.stderr)

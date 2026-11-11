@@ -1,4 +1,3 @@
-from legacy_fixture import legacy_result
 import json
 from pathlib import Path
 import subprocess
@@ -19,7 +18,7 @@ class V1Tests(unittest.TestCase):
         self.tmp.cleanup()
 
     def cli(self, *args):
-        return legacy_result(subprocess.run([sys.executable, str(SCRIPT), *map(str, args)], capture_output=True, text=True), args)
+        return subprocess.run([sys.executable, str(SCRIPT), *map(str, args)], capture_output=True, text=True)
 
     def setup_pending(self):
         result = self.cli('setup', '--workspace', self.ws)

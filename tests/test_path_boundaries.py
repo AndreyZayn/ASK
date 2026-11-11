@@ -1,5 +1,4 @@
 """Synthetic regression tests for staged validation and hook path boundaries."""
-from legacy_fixture import legacy_workspace
 import json
 import os
 import shutil
@@ -26,7 +25,6 @@ class PathBoundaryTests(unittest.TestCase):
             [sys.executable, str(ROOT / 'scripts/ask.py'), 'init',
              '--workspace', str(self.ws)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        legacy_workspace(self.ws)
         self.config = self.ws / 'ask.json'
         self.git('init')
 

@@ -14,15 +14,14 @@
     "docs/schema.md",
     "docs/start-here.md",
     "docs/upgrades.md",
+    "schemas/note.schema.json",
     "scripts/ask.py",
     "scripts/asklib/__init__.py",
     "scripts/asklib/backup.py",
-    "scripts/asklib/configuration.py",
     "scripts/asklib/gitops.py",
     "scripts/asklib/onboarding.py",
     "scripts/asklib/path_schema.py",
     "scripts/asklib/runtime.py",
-    "scripts/asklib/schema.py",
     "scripts/asklib/setup_checks.py",
     "scripts/asklib/v1.py",
     "scripts/asklib/validation.py",
@@ -112,6 +111,5 @@
     "templates/vault/knowledge-continuity-loop.md",
     "templates/vault/knowledge-map.md",
     "templates/vault/tags.md"
-  ],
-  "workspace_layout": 2
+  ]
 }

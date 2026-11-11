@@ -5,52 +5,31 @@ ASK is a complete local working system containing an Obsidian-compatible knowled
 ## Files and responsibilities
 
 - `templates/vault/` contains neutral Markdown notes copied into a new private workspace. The default bootstrap order is `date.md`, `INDEX.md`, `agents.md`, `knowledge-map.md`.
-- `scripts/asklib/schema.py` defines machine validation rules as a Python literal. The vault’s `frontmatter-schema.md` explains them for humans. Owners can deliberately extend their installed rules; the validator reads the literal without executing the file. Older installations retain their existing schema until an owner explicitly chooses a migration.
+- `schemas/note.schema.json` defines shared metadata defaults. Initialization copies it into the private workspace so an owner can extend enum values locally.
 - `scripts/ask.py` is the Python 3.9+ standard-library entry point. The V1 controller provides setup, runtime connection and status, write markers, scoped checkpoints, sync, backup, validation, bootstrap output, and graph export. See [install.md](install.md), [runtime.md](runtime.md), and [backup.md](backup.md).
-- The installed `system/` contains scripts, templates and guides; `artifacts/` holds private working files outside the graph. The installed scripts are the execution source for hooks, agent guidance and scheduled backup.
+- The installed `system/` contains scripts, schemas, templates and guides; `artifacts/` holds private working files outside the graph. The installed scripts are the execution source for hooks, agent guidance and scheduled backup.
 - `install-manifest.json` lists the reviewed distribution files copied into an installation. Update it when adding or removing public scripts, schemas, templates, documentation or the root README/license; unlisted local checkout files are never installed.
-- `scripts/asklib/configuration.py` supplies deterministic defaults. Optional `system/settings.ini` overrides the vault path, access declarations, topology flag, and backup settings. Fresh installs do not create `ask.json` or `note.schema.json`.
+- `ask.json` records the local vault root, schema path, bootstrap order, and advisory read/write path declarations.
 - The generated workspace-root `AGENTS.md` tells an agent how to read the configured bootstrap notes and where to find its local policy.
 
 ## Initialization and configuration
 
-Run `python3 scripts/ask.py setup --workspace PATH [--repository OWNER/NAME --create-repository] [--runtime claude|codex|amp|droid|antigravity|cursor|generic] [--read-only] [--backup scheduled]` to install. The default vault folder is `Knowledge Base`. Setup copies the portable tools, guides, templates and schema into `system/`, renders `{{DATE}}` for the vault, and creates `artifacts/` and a workspace-root `AGENTS.md`. After setup, use the installed `system/scripts/ask.py`; normal use does not depend on the original public checkout. It can bind a private repository, install a staged-snapshot pre-commit hook without overwriting custom hooks, and configure the selected runtime without replacing foreign instructions. Omitting `--repository` leaves a usable local `setup-pending` workspace (exit 2). An installed runtime remains `configured-unverified` pending a real new-session test.
+Run `python3 scripts/ask.py setup --workspace PATH [--repository OWNER/NAME --create-repository] [--runtime claude|codex|amp|droid|antigravity|cursor|generic] [--read-only] [--backup scheduled]` to install. The default vault folder is `Knowledge Base`. Setup copies the portable tools, guides, templates and schema into `system/`, renders `{{DATE}}` for the vault, and creates `artifacts/`, `ask.json` and a workspace-root `AGENTS.md`. After setup, use the installed `system/scripts/ask.py`; normal use does not depend on the original public checkout. It can bind a private repository, install a staged-snapshot pre-commit hook without overwriting custom hooks, and configure the selected runtime without replacing foreign instructions. Omitting `--repository` leaves a usable local `setup-pending` workspace (exit 2). An installed runtime remains `configured-unverified` pending a real new-session test.
 
 The lower-level `init --workspace PATH [--vault-name NAME]` creates a local read-only-declared workspace without remote or runtime setup. Do not run either initialization command into an existing vault or inside the public checkout. Runtime registration does not grant operating-system permissions.
 
-In legacy JSON configuration (selected explicitly with `--config FILE` or resolved from `--workspace PATH`), `vault_root` is relative to the config file or an explicit absolute owner-selected path; `schema_path` is relative to the config file and cannot use traversal; and `bootstrap_files` is an ordered list of vault-relative notes. Bootstrap and `access.read` / `access.write` paths cannot be absolute, contain a `..` segment, or escape the vault. Lower-level `init` defaults to `access.read` of `["."]` and `access.write` of `[]`. Setup provides a `--read-only` option or scoped content-writer declarations. Changes to bootstrap order and access declarations need owner direction.
+In version 1 configuration, `vault_root` is relative to the config file or an explicit absolute owner-selected path; `schema_path` is relative to the config file and cannot use traversal; and `bootstrap_files` is an ordered list of vault-relative notes. Bootstrap and `access.read` / `access.write` paths cannot be absolute, contain a `..` segment, or escape the vault. Lower-level `init` defaults to `access.read` of `["."]` and `access.write` of `[]`. Setup provides a `--read-only` option or scoped content-writer declarations. Changes to bootstrap order and access declarations need owner direction.
 
 Access declarations tell an agent what the owner intends it to read or write. They do not enforce access. The agent runtime's actual filesystem permissions control what it can reach, so the owner must constrain runtime access and explicitly grant any desired write permission.
 
 ## Validation and bootstrap
 
-`--workspace PATH` (or `--root PATH`) selects the installed workspace for every command; `--config FILE` is retained for legacy installations. These selectors are mutually exclusive. `validate --workspace PATH [--json]` checks note metadata and links against the private schema and configured vault. `bootstrap --workspace PATH [--output PATH]` prints an agent adapter that reflects the configured bootstrap order and access declarations; printing it is not runtime registration or verification. An explicit output path must be new and outside both the distribution and private vault. `agent verify` prints a real-session proof procedure, and `--evidence JSON_FILE` records controller-observed evidence; it does not secretly invoke an agent. Status and doctor emit JSON.
+`validate --config PATH [--json]` checks note metadata and links against the private schema and configured vault. `bootstrap --config PATH [--output PATH]` prints an agent adapter that reflects the configured bootstrap order and access declarations; printing it is not runtime registration or verification. An explicit output path must be new and outside both the distribution and private vault. `agent verify` prints a real-session proof procedure, and `--evidence JSON_FILE` records controller-observed evidence; it does not secretly invoke an agent. Status and doctor emit JSON.
 
 The default four bootstrap files orient an agent in each new user project context before it follows the knowledge map and nearby indexes. Every installing agent should proactively persist this order in its actual runtime, preserving unrelated instructions and reporting unsupported bindings. Additional templates provide neutral goals, metadata, continuity, project/people/personal indexes, task states, date-routed operational history, requested rollup indexes, and descriptive agent catalogs and policy gates. They are not additional default bootstrap notes. A worker assigned `KB_ACCESS: none` must not bootstrap or read a private vault.
 
 ## Derived graph
 
-`graph --workspace PATH [--output PATH]` emits a deterministic JSON index with vault-relative note IDs, selected metadata, and directed edges. Ordinary Markdown wikilinks become `navigational` edges. The `governed_by`, `depends_on`, `derived_from`, and `associated_with` fields produce directed edges with their corresponding relation names. The exporter validates the vault first. Note integrity findings exit with status `1` and prevent export; configuration, usage, and I/O errors exit with status `2`. Output goes to stdout by default; an explicit output must be a new path outside the distribution and private vault, and is created only after validation succeeds.
+`graph --config PATH [--output PATH]` emits a deterministic JSON index with vault-relative note IDs, selected metadata, and directed edges. Ordinary Markdown wikilinks become `navigational` edges. The `governed_by`, `depends_on`, `derived_from`, and `associated_with` fields produce directed edges with their corresponding relation names. The exporter validates the vault first. Note integrity findings exit with status `1` and prevent export; configuration, usage, and I/O errors exit with status `2`. Output goes to stdout by default; an explicit output must be a new path outside the distribution and private vault, and is created only after validation succeeds.
 
 The JSON is a derived, read-only view of Markdown. Notes remain canonical, and graph edges do not grant runtime access. Agent task-board services and their scripts are outside the public ASK distribution. Optional scheduled backup does not schedule an AI agent. No hosted service or runtime permission enforcement is bundled.
-
-## Native settings
-
-The default vault is `Knowledge Base`, with the ordered four-note bootstrap, topology checks enabled, session backup, read access to the vault, and scoped content-write declarations for `setup`. `init` and `setup --read-only` declare no writes. No settings file is needed for default setup. `--vault-name` creates an explicit relative path override. Optional `system/settings.ini` uses this data-only format (list values are one path per line):
-
-```ini
-[workspace]
-vault_root = My Notes
-[access]
-read = .
-write = Projects
-    Tasks
-[validation]
-topology = true
-[backup]
-mode = session
-```
-
-A private repository binding adds `repository = OWNER/NAME` under `[backup]`. Unknown keys, invalid booleans, symlink paths, and escaping or reserved vault directories fail closed. Settings do not redirect the Python schema or bootstrap filenames. Rerunning setup preserves settings, notes and rules; conflicting `--vault-name` or `--read-only` requests fail with an explanation. Setup changes only an explicitly requested repository binding. Changes to declarations remain subject to owner authorization.
-
-The installed manifest identifies native layout version 2. An ambiguous native marker plus legacy `ask.json` requires manual reconciliation or explicit `--config`; no automatic conversion occurs. Missing native system files require restoration, not a reset. Staged validation uses indexed settings, indexed literal Python rules and indexed notes; it never imports or executes staged Python. A complete initial checkpoint includes the installed manifest and rules.

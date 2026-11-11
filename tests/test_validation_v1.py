@@ -1,4 +1,3 @@
-from legacy_fixture import legacy_result
 import json
 from pathlib import Path
 import shlex
@@ -13,7 +12,7 @@ HEAD = '---\ntitle: %s\ndescription: X\nkind: note\nscope: shared\nlifecycle_sta
 
 
 def cli(*args):
-    return legacy_result(subprocess.run([sys.executable, str(ASK), *map(str, args)], text=True, capture_output=True), args)
+    return subprocess.run([sys.executable, str(ASK), *map(str, args)], text=True, capture_output=True)
 
 
 def note(title, body='', extra=''):
@@ -192,10 +191,10 @@ class ValidationV1Tests(unittest.TestCase):
 
     # Adapter
     def test_adapter_renders_resolved_paths_and_command(self):
-        cmd = 'python3 %s validate --config %s' % (shlex.quote(str(self.ws / 'system/scripts/ask.py')), shlex.quote(str(self.cfg)))
         for text in ((self.ws / 'AGENTS.md').read_text(), cli('bootstrap', '--config', self.cfg).stdout):
             self.assertIn(str(self.vault), text)
             self.assertIn(str(self.vault / 'INDEX.md'), text)
+            cmd = 'python3 %s validate --config %s' % (shlex.quote(str(self.ws / 'system/scripts/ask.py')), shlex.quote(str(self.cfg)))
             self.assertIn(cmd, text)
             self.assertIn('relative to the vault root', text)
         (self.ws / 'nested').mkdir()

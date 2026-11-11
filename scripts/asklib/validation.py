@@ -16,8 +16,6 @@ Standard library only, Python 3.9 compatible. No shell, no checkout, no
 mutation of the repository.
 """
 
-from . import configuration
-
 import json
 import os
 import re
@@ -473,10 +471,7 @@ def _validate_staged(api, config_path, files):
         if not cfg_abs.is_absolute():
             cfg_abs = Path.cwd() / cfg_abs
         cfg_abs = cfg_abs.absolute()
-        api.ensure_no_symlink_path(cfg_abs)
-        directory_selector = cfg_abs.is_dir()
-        cfg_ws = cfg_abs if directory_selector else cfg_abs.parent
-        r = _git_run(['rev-parse', '--show-toplevel'], cfg_ws)
+        r = _git_run(['rev-parse', '--show-toplevel'], cfg_abs.parent)
         if r.returncode != 0:
             raise AskError('not inside a git workspace')
         top = Path(r.stdout.decode('utf-8', 'surrogateescape').strip())
@@ -485,9 +480,9 @@ def _validate_staged(api, config_path, files):
         except OSError:
             top_resolved = top.absolute()
         try:
-            cfg_parent = cfg_ws.resolve()
+            cfg_parent = cfg_abs.parent.resolve()
         except OSError:
-            cfg_parent = cfg_ws.absolute()
+            cfg_parent = cfg_abs.parent.absolute()
         if cfg_parent != top_resolved:
             raise AskError('config must be in the workspace git root')
         r = _git_run(['ls-files', '--stage', '-z'], top_resolved)
@@ -528,7 +523,7 @@ def _validate_staged(api, config_path, files):
             config_rel = cfg_abs.relative_to(top_resolved).as_posix()
         except ValueError:
             raise AskError('config must be in the workspace git root')
-        if not directory_selector and config_rel not in indexed:
+        if config_rel not in indexed:
             raise AskError('config must exist in the index: %s' % config_rel)
         with tempfile.TemporaryDirectory() as tmp:
             tmp_p = Path(tmp)
@@ -555,9 +550,9 @@ def _validate_staged(api, config_path, files):
                 with dest.open('wb') as f:
                     f.write(c.stdout)
             staged_config = tmp_resolved / config_rel
-            if not directory_selector and not staged_config.is_file():
+            if not staged_config.is_file():
                 raise AskError('config must exist in the index: %s' % config_rel)
-            raw_cfg = configuration.read(staged_config)
+            raw_cfg = json.loads(staged_config.read_text(encoding='utf-8'))
             root = raw_cfg.get('vault_root', '')
             # load_config expands a leading '~' (including named-user homes).
             # Reject it before snapshot validation can touch live external notes.
@@ -567,7 +562,7 @@ def _validate_staged(api, config_path, files):
                 raise AskError('staged vault_root must be a relative directory inside the workspace')
             return _validate_snapshot(
                 api, staged_config, files, redact=str(tmp_resolved))
-    except (AskError, OSError, ValueError, TypeError) as e:
+    except AskError as e:
         return _error_report(e)
 
 
