@@ -11,6 +11,7 @@ tags: ["agents", "loops"]
 
 - [[Agents/loops/work-session]] — orient, act, preserve, close out
 - [[Agents/loops/rollup]] — optional requested summaries
+- [[Agents/loops/personal-social-content]] — owner-requested social drafts and review
 
 This catalog is guidance, not a scheduler. Nothing here starts a runtime or an AI background job.
 

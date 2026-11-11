@@ -54,6 +54,44 @@ class PrivacyBaselineTests(unittest.TestCase):
         self.assertEqual(result.returncode,1)
         self.assertIn('1 reviewed historical; 1 new',result.stdout)
 
+    def test_owner_approved_email_in_metadata_is_not_a_file_exemption(self):
+        self.baseline.write_text(json.dumps({
+            'author_commits': [],
+            'allowed_author_email_from_commits': [self.old],
+        }))
+        (self.root/'note.md').write_text('Synthetic note')
+        self.git('add','note.md')
+        self.git('commit','-m','Reuse approved author','--author','Synthetic <'+self.fake_email+'>')
+        result=self.scan('--history-author-baseline',self.baseline)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertNotIn(self.fake_email,result.stdout)
+        (self.root/'note.md').write_text(self.fake_email)
+        self.git('add','note.md');self.git('commit','-m','Synthetic file data')
+        result=self.scan('--history-author-baseline',self.baseline)
+        self.assertEqual(result.returncode,1)
+        self.assertIn('note.md: personal-email',result.stdout)
+        self.assertNotIn(self.fake_email,result.stdout)
+
+    def test_approved_author_does_not_exempt_a_different_email(self):
+        self.baseline.write_text(json.dumps({
+            'author_commits': [],
+            'allowed_author_email_from_commits': [self.old],
+        }))
+        other='other-synthetic'+'@'+'gmail.com'
+        (self.root/'note.md').write_text('Synthetic note')
+        self.git('add','note.md')
+        self.git('commit','-m','Another author','--author','Other <'+other+'>')
+        result=self.scan('--history-author-baseline',self.baseline)
+        self.assertEqual(result.returncode,1)
+        self.assertNotIn(other,result.stdout)
+
+    def test_approved_author_source_must_be_in_scanned_ancestry(self):
+        self.baseline.write_text(json.dumps({
+            'author_commits': [],
+            'allowed_author_email_from_commits': ['a'*40],
+        }))
+        self.assertEqual(self.scan('--history-author-baseline',self.baseline).returncode,2)
+
     def test_new_secret_in_history_still_fails_after_removal(self):
         (self.root/'fixture.txt').write_text('sk-'+'a'*30)
         self.git('add','fixture.txt');self.git('commit','-m','Synthetic fixture')

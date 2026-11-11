@@ -15,5 +15,9 @@ Read only the selected loop and procedure. A planning request ends at its planni
 - [[Agents/rules/software-development/qa-acceptance]] ↔ [[Agents/loops/software-qa-acceptance]]
 - [[Agents/rules/software-development/release-operations]] ↔ [[Agents/loops/software-release-operations]]
 - [[Agents/rules/software-development/practice-improvement]] ↔ [[Agents/loops/software-practice-improvement]]
+- [[Agents/rules/software-development/principles]] — cross-cutting engineering constraints
+- [[Agents/rules/software-development/database-management]] — safe authorized data and migration changes
+- [[Agents/rules/software-development/development-log-format]] — concise engineering evidence
+- [[Agents/rules/software-development/pull-request-handoff]] — reviewer-ready delivery
 
 [[Agents/rules/task-completion]] owns task ownership and delivery. Apply the repository's contributor instructions and owner authority; no universal merge or production gate is implied.

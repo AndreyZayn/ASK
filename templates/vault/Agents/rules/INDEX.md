@@ -14,9 +14,19 @@ governed_by:
 - [[Agents/rules/knowledge-work]] — default rules for reading, writing, and recording knowledge
 - [[Agents/rules/software-work]] — planning, execution, and review
 - [[Agents/rules/communications]] — messages and external actions
+- [[Agents/rules/communication-rules]] — context and authority for communications
 - [[Agents/rules/capability-management]] — skills, MCP, and runtime changes
 - [[Agents/rules/orchestration]] — bounded delegation
 - [[Agents/rules/structural-changes]] — owner-directed system changes
+- [[Agents/rules/automation-management]] — authorized schedules and deployed assignments
+- [[Agents/rules/follow-up-discipline]] — commitments, follow-up, and owner attention
+- [[Agents/rules/harness-improvement]] — evidence and bounded correction of recurring failures
+- [[Agents/rules/loop-management]] — reusable workflows and their boundaries
+- [[Agents/rules/mcp-management]] — integration configuration and troubleshooting
+- [[Agents/rules/model-resource-safety]] — safe local model workloads
+- [[Agents/rules/product-planning]] — user outcomes and evidence for new product scope
+- [[Agents/rules/project-wiki-maintenance]] — durable, navigable project documentation
+- [[Agents/rules/skill-management]] — observed skills and owner-directed lifecycle changes
 
 Read the default rule plus only the gates matching the task. All non-index notes in this folder use `kind: rule`; do not add or revise policy without owner direction.
 

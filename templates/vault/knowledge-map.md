@@ -21,7 +21,7 @@ This is bootstrap note 4 of 4. Use it to decide where to read and where to recor
 | Agent roster, ontology, capabilities, loops | [[Agents/INDEX]] |
 | People and relationships | [[People/INDEX]] |
 | Personal notes and plans | [[Personal/INDEX]] |
-| Task lists and plans | [[Tasks/INDEX]] |
+| Task lists and plans | [[Tasks/INDEX]] and [[Tasks/owner-task-contract]] |
 | Durable memory, session logs, requested rollups | [[Memory/INDEX]] |
 
 If nothing fits, start at [[INDEX]]. When you add a new area, link it here and from its nearest index.
@@ -37,13 +37,24 @@ After bootstrap, classify the request and load every matching rule **before task
 | Test, assess behavior, QA, retest | [[Agents/rules/software-development/qa-acceptance]] and [[Agents/loops/software-qa-acceptance]] |
 | Merge, deploy, release, observe operations | [[Agents/rules/software-development/release-operations]] and [[Agents/loops/software-release-operations]] |
 | Diagnose or improve engineering practices | [[Agents/rules/software-development/practice-improvement]] and [[Agents/loops/software-practice-improvement]] |
-| Outbound message or publication | [[Agents/rules/communications]] |
+| Outbound message or publication | [[Agents/rules/communications]] and [[Agents/rules/communication-rules]] |
 | Agent delegation | [[Agents/rules/orchestration]] |
 | Install or change a capability/runtime | [[Agents/rules/capability-management]] |
+| Create, install, update, assign, or retire a skill | [[Agents/rules/skill-management]] |
+| Set up or troubleshoot an integration or MCP server | [[Agents/rules/mcp-management]] |
+| Define or change a workflow loop | [[Agents/rules/loop-management]] |
+| Schedule or change an automation | [[Agents/rules/automation-management]] |
+| Decide whether or when to follow up | [[Agents/rules/follow-up-discipline]] |
+| New product scope or user-facing feature planning | [[Agents/rules/product-planning]] |
+| Update durable project documentation | [[Agents/rules/project-wiki-maintenance]] |
+| Run a resource-intensive local model or job | [[Agents/rules/model-resource-safety]] |
+| Repeated execution failures or ineffective agent instructions | [[Agents/rules/harness-improvement]] |
 | Policy, taxonomy, schema, workflow definition, or hierarchy changes | [[Agents/rules/structural-changes]] |
 | Any vault edit or durable task closeout | [[knowledge-continuity-loop]] |
 
 This map routes; facts belong in the destination note. Follow a project's own retrieval map and stop at the shallowest source that answers the task. Do not recursively read research, people, capability inventories, or archived projects.
+
+For owner-requested social writing, enter [[Agents/loops/personal-social-content]] and use the appropriate communication rules before any external action.
 
 ## Capture
 
