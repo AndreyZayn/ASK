@@ -9,7 +9,7 @@ import shlex
 import subprocess
 import sys
 
-from . import backup, gitops, runtime, validation, setup_checks
+from . import backup, gitops, runtime, validation, setup_checks, onboarding
 
 VERSION = '1.0.0'
 COMMANDS = {'setup', 'doctor', 'agent', 'checkpoint', 'sync', 'write', 'backup'}
@@ -72,6 +72,24 @@ def _install_hook(api, cp):
         raise api.AskError(r.stderr)
 
 
+def _setup_identity(api, ws):
+    # Fill only missing repository-local fields; preserve the owner's choices.
+    missing = [key for key in ('user.name', 'user.email')
+               if not _git(ws, 'config', '--local', key).stdout.strip()]
+    if not missing:
+        return
+    who = subprocess.run(['gh', 'api', 'user', '--jq', '{login: .login, id: .id}'],
+                         capture_output=True, text=True, timeout=30)
+    if who.returncode:
+        raise api.AskError('cannot obtain GitHub no-reply identity; set repository-local user.name and user.email')
+    user = json.loads(who.stdout)
+    values = {'user.name': user['login'],
+              'user.email': '%s+%s@users.noreply.github.com' % (user['id'], user['login'])}
+    for key in missing:
+        if _git(ws, 'config', '--local', key, values[key]).returncode:
+            raise api.AskError('cannot set repository-local Git identity; configure it manually')
+
+
 def _setup(api, args):
     ws = Path(args.workspace).expanduser().absolute()
     api.ensure_no_symlink_path(ws)
@@ -91,7 +109,7 @@ def _setup(api, args):
         if _git(parent, 'rev-parse', '--show-toplevel').returncode == 0:
             raise api.AskError('private workspace must be outside every existing repository')
         with contextlib.redirect_stdout(io.StringIO()):
-            api.init(argparse.Namespace(workspace=str(ws), vault_name=args.vault_name))
+            created = api.init(argparse.Namespace(workspace=str(ws), vault_name=args.vault_name))
         data = _json(cp)
         data.update({'ask_version': VERSION, 'template_version': VERSION,
                      'validation': {'topology': True}, 'backup': {'mode': 'session'}})
@@ -114,24 +132,22 @@ def _setup(api, args):
     _install_hook(api, cp)
     result = {'state': 'setup-pending', 'workspace': str(ws), 'vault': str(ctx['vault']),
               'version': VERSION, 'validation': report['counts'], 'pending': []}
+    if fresh:
+        result['initial_checkpoint_files'] = sorted(created + ['.gitignore'])
     if args.repository:
+        if not fresh and _git(ws, 'rev-parse', '--verify', 'HEAD').returncode != 0:
+            raise api.AskError('initial baseline is not committed; use the reviewed fresh-setup initial_checkpoint_files with checkpoint before retrying setup (see docs/install.md)')
         result['remote'] = gitops.configure_remote(ws, args.repository, create=args.create_repository)
         data = _json(cp)
         config_changed = data.get('backup', {}).get('repository') != result['remote']['repository']
         data.setdefault('backup', {})['repository'] = result['remote']['repository']
         if config_changed:
             _save(cp, data)
-        # Set a repository-only no-reply identity from the authenticated GitHub account.
-        if not all(_git(ws, 'config', '--local', key).stdout.strip() for key in ('user.name','user.email')):
-            who = subprocess.run(['gh','api','user','--jq','{login: .login, id: .id}'], capture_output=True, text=True, timeout=30)
-            if who.returncode:
-                raise api.AskError('cannot obtain GitHub no-reply identity; set repository-local user.name and user.email')
-            user = json.loads(who.stdout)
-            _git(ws, 'config', '--local', 'user.name', user['login'])
-            _git(ws, 'config', '--local', 'user.email', '%s+%s@users.noreply.github.com' % (user['id'], user['login']))
+        _setup_identity(api, ws)
         if _git(ws, 'rev-parse', '--verify', 'HEAD').returncode != 0:
-            initial = ['ask.json','note.schema.json','AGENTS.md','.gitignore']
-            initial += [p.relative_to(ws).as_posix() for p in ctx['vault'].rglob('*') if p.is_file()]
+            initial = result.get('initial_checkpoint_files')
+            if initial is None:
+                raise api.AskError('initial baseline is not committed; use the reviewed fresh-setup initial_checkpoint_files with checkpoint before retrying setup (see docs/install.md)')
             result['backup'] = gitops.checkpoint(ws, initial, 'Initialize private ASK workspace', lambda: _assert_valid(api, cp, True), owner_approved=True)
         else:
             if config_changed:
@@ -140,6 +156,8 @@ def _setup(api, args):
         if result['backup'].get('backup_pending'):
             result['pending'].append('GitHub backup is pending; run sync when connected.')
     else:
+        if not all(_git(ws, 'config', '--local', key).stdout.strip() for key in ('user.name', 'user.email')):
+            result['pending'].append('Repository-local Git identity is missing; choose user.name and user.email before checkpointing (see docs/install.md).')
         result['pending'].append('Connect your own PRIVATE GitHub repository with setup --repository OWNER/NAME [--create-repository].')
     if args.runtime:
         previous = runtime.inspect(cp, args.runtime)
@@ -224,9 +242,10 @@ def dispatch(api, argv):
             p.add_argument('--message',required=True)
             p.add_argument('--owner-approved',action='store_true')
     p=subs.add_parser('agent'); actions=p.add_subparsers(dest='action',required=True)
-    for action in ('connect','disconnect','status','verify'):
+    for action in ('connect','disconnect','status','verify','onboarding'):
         q=actions.add_parser(action); q.add_argument('--config',required=True); q.add_argument('--runtime',required=True)
         if action=='verify': q.add_argument('--evidence',help='JSON file containing controller-observed fresh-session proof')
+        if action=='onboarding': q.add_argument('--profile',help='Sanitized caller-observed JSON; generates proposed rows without writing notes')
     p=subs.add_parser('write'); actions=p.add_subparsers(dest='action',required=True)
     for action in ('begin','end'):
         q=actions.add_parser(action); q.add_argument('--config',required=True)
@@ -241,7 +260,9 @@ def dispatch(api, argv):
         if args.command=='doctor':
             result=_doctor(api,cp); emit(result); return 0 if result['state']=='ready' else 2
         if args.command=='agent':
-            if args.action=='verify':
+            if args.action=='onboarding':
+                result = onboarding.report(api, cp, args.runtime, args.profile)
+            elif args.action=='verify':
                 result = runtime.record_verification(cp,args.runtime,_json(Path(args.evidence))) if args.evidence else {'state':'verification-required','instructions':runtime.verification_prompt(cp)}
             else:
                 result=getattr(runtime,{'status':'inspect'}.get(args.action,args.action))(cp,args.runtime)

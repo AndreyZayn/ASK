@@ -6,7 +6,7 @@ ASK is a local-first framework for a private, Obsidian-compatible Markdown knowl
 
 On macOS, give your local agent this prompt:
 
-> Install ASK from https://github.com/AndreyZayn/ASK for me. Read AGENTS.md and docs/start-here.md and complete their installation checklist. Create my own private workspace and private GitHub backup, separate from the public checkout. Register this agent in my vault and persist the four-note bootstrap in its actual runtime, preserving existing instructions. Verify a fresh session inside the workspace and from another directory. Ask for the workspace and repository choices you need, and tell me what remains unverified. Show me which folder to open in Obsidian.
+> Install ASK from https://github.com/AndreyZayn/ASK for me. Read AGENTS.md and docs/start-here.md and complete their installation checklist. Create my own private workspace and private GitHub backup, separate from the public checkout. Register this agent in the new workspace’s generated roster, document its actually observed capabilities and discovery coverage with evidence and limits, and persist the four-note bootstrap in its actual runtime, preserving existing instructions. Verify a fresh session inside the workspace and from another directory. Ask for the workspace and repository choices you need, and tell me what remains unverified. Show me which folder to open in Obsidian.
 
 Your agent needs local file and command access. You supply your own agent account and GitHub authentication; ASK has no central registration service. Each person gets their own vault and private repository. See [the agent installation checklist](docs/start-here.md), including how to connect another agent later.
 

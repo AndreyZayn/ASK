@@ -557,6 +557,8 @@ def sync(workspace):
                "ahead": st["ahead"], "behind": st["behind"]}
         if active_writes(ws) or st["conflicts"] or st["staged"]:
             out["pull_reason"] = "active-writers" if active_writes(ws) else "conflicts" if st["conflicts"] else "staged-work"
+            out["backup_pending"] = True
+            out["push_reason"] = "sync-deferred"
             return out
         url = _ensure_private_remote(ws)
         has_origin = url is not None
