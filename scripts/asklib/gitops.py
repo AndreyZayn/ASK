@@ -343,7 +343,8 @@ def _check_rel(ws, value):
 
 
 def _is_protected(ws, rel):
-    if rel in WORKSPACE_FILES:
+    normalized = rel.casefold()
+    if normalized in {name.casefold() for name in WORKSPACE_FILES} or normalized == 'system' or normalized.startswith('system/'):
         return True
     vault, boot = _load_vault(ws)
     try:

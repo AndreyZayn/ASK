@@ -34,4 +34,4 @@ The default four bootstrap files orient an agent in each new user project contex
 
 The JSON is a derived, read-only view of Markdown. Notes remain canonical, and graph edges do not grant runtime access. Agent task-board services and their scripts are outside the public ASK distribution. Optional scheduled backup does not schedule an AI agent. No hosted service or runtime permission enforcement is bundled.
 
-For native installations, the repository-local Git setting `ask.readOnly` records the advisory write mode. A restored clone must run setup again to choose its local mode. This declaration does not enforce filesystem permissions.
+For native installations, the repository-local Git setting `ask.readOnly` records the advisory write mode. A restored clone defaults to read-only when setup is rerun because Git does not copy local settings. To explicitly permit normal write declarations on that clone, run `git -C /path/to/your-workspace config --local ask.readOnly false` and reconnect the agent runtime. This declaration does not enforce filesystem permissions.

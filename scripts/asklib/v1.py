@@ -124,7 +124,10 @@ def _setup(api, args):
     if not cp.exists():
         current = _git(ws, 'config', '--local', '--get', 'ask.readOnly')
         if fresh or current.returncode == 1:
-            setting = _git(ws, 'config', '--local', 'ask.readOnly', 'true' if args.read_only else 'false')
+            # A clone has no local Git settings; never silently turn a restored
+            # read-only workspace writable just because setup was rerun.
+            read_only = args.read_only or not fresh
+            setting = _git(ws, 'config', '--local', 'ask.readOnly', 'true' if read_only else 'false')
             if setting.returncode:
                 raise api.AskError('could not set the local ASK access declaration')
         elif current.returncode != 0:
